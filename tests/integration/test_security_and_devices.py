@@ -118,7 +118,7 @@ def test_audio_tests_release_gate(client):
     assert gate["allowed"] is False
     assert client.patch("/api/v1/settings", json={"values": {"calling.autonomous_enabled": True}}).status_code == 400
     plan = client.get("/api/v1/audio-tests/plan").json()
-    assert len(plan["steps"]) == 16
+    assert len(plan["steps"]) == 18
     # simulated passes never open the gate
     for direction in ("inbound", "outbound"):
         r = client.post("/api/v1/audio-tests", json={"test_id": "AFT-SIM", "step": "remote_speech_capture", "direction": direction, "status": "pass", "kind": "simulated"}).json()
@@ -128,7 +128,7 @@ def test_audio_tests_release_gate(client):
     r1 = client.post("/api/v1/audio-tests", json={"test_id": "AFT-20261018-01", "step": "remote_speech_capture", "direction": "inbound", "status": "pass", "kind": "real_device", "phone_model": "SM-S931B", "evidence": {"remote_capture_possible": "true"}}).json()
     client.post(f"/api/v1/audio-tests/{r1['id']}/confirm")
     assert client.get("/api/v1/settings/release-gate").json()["allowed"] is False
-    r2 = client.post("/api/v1/audio-tests", json={"test_id": "AFT-20261018-01", "step": "generated_speech_transmission", "direction": "outbound", "status": "pass", "kind": "real_device"}).json()
+    r2 = client.post("/api/v1/audio-tests", json={"test_id": "AFT-20261018-01", "step": "generated_speech_transmission", "direction": "outbound", "status": "pass", "kind": "real_device", "evidence": {"uplink_injection": "digital"}}).json()
     assert client.get("/api/v1/settings/release-gate").json()["allowed"] is False  # not yet operator-confirmed
     client.post(f"/api/v1/audio-tests/{r2['id']}/confirm")
     g = client.get("/api/v1/settings/release-gate").json()
@@ -157,7 +157,12 @@ def test_release_gate_needs_dedicated_steps_and_capture_evidence(client):
     # confirmed "both"-direction quality steps plus outbound never open the gate
     for step in ("simultaneous_two_way", "latency_echo_quality", "hindi_phrases", "english_phrases"):
         assert client.post(f"/api/v1/audio-tests/{rec(step, 'both')['id']}/confirm").status_code == 200
-    assert client.post(f"/api/v1/audio-tests/{rec('generated_speech_transmission', 'outbound')['id']}/confirm").status_code == 200
+    # speech played through the loudspeaker into the phone mic is an acoustic relay: never a digital PASS
+    acoustic = rec("generated_speech_transmission", "outbound", evidence={"path": "acoustic: loudspeaker -> air -> phone microphone -> uplink", "uplink_injection": "digital"})
+    r = client.post(f"/api/v1/audio-tests/{acoustic['id']}/confirm")
+    assert r.status_code == 409 and r.json()["code"] == "digital_injection_unproven"
+    assert client.post(f"/api/v1/audio-tests/{rec('generated_speech_transmission', 'outbound')['id']}/confirm").status_code == 409
+    assert client.post(f"/api/v1/audio-tests/{rec('generated_speech_transmission', 'outbound', evidence={'uplink_injection': 'digital'})['id']}/confirm").status_code == 200
     g = client.get("/api/v1/settings/release-gate").json()
     assert g["allowed"] is False and g["evidence"]["inbound"] == [] and g["evidence"]["outbound"] == ["AFT-GATE"]
 

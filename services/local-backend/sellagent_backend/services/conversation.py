@@ -1,5 +1,5 @@
-"""One conversation turn for a live call, shared by the operator console (POST /calls/{id}/step) and the
-acoustic AI bridge. Safety facts (consent, opt-out, emergency stop) come from the database, never from the model."""
+"""One conversation turn for a live call (POST /calls/{id}/step). Kept separate from the HTTP layer so a future
+verified digital call-audio pipeline can reuse it. Safety facts (consent, opt-out, emergency stop) come from the database, never from the model."""
 
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ def run_step(
     prev = c.conversation_state
     c.conversation_state = sm.state.value
     c.language = turn.language
-    db.add(CallEvent(call_id=c.id, event_type="conversation.step", from_state=prev, to_state=sm.state.value, source="bridge" if actor == "ai_bridge" else "backend", data={"source": turn.source, "guardrail": turn.guardrail.to_dict() if turn.guardrail else None, "llm": turn.llm_metrics}))
+    db.add(CallEvent(call_id=c.id, event_type="conversation.step", from_state=prev, to_state=sm.state.value, source="backend", data={"source": turn.source, "guardrail": turn.guardrail.to_dict() if turn.guardrail else None, "llm": turn.llm_metrics}))
     if turn.agent_text:
         db.add(Transcript(call_id=c.id, seq=seq, speaker="agent", text=turn.agent_text, language=turn.language, source=agent_source or ("llm" if turn.source == "llm" else "typed"), knowledge_refs=turn.knowledge_refs))
     if turn.llm_metrics:

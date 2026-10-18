@@ -290,42 +290,6 @@ def call_summary(call_id: str, db: Session = Depends(get_db)) -> dict:
     return summary
 
 
-class BridgeStartIn(BaseModel):
-    language: str = "auto"
-    use_llm: bool = True
-
-
-@calls_router.get("/bridge/status")
-def bridge_status(request: Request) -> dict:
-    """The AI voice bridge (PC speaker + mic next to the phone on speakerphone). Operator-started only."""
-    return request.app.state.bridge.status()
-
-
-@calls_router.post("/{call_id}/bridge/start")
-def bridge_start(call_id: str, body: BridgeStartIn, request: Request) -> dict:
-    """Let the AI talk on this live call through the PC speaker and microphone while the operator watches.
-    Take over (bridge/stop) or Emergency stop end the AI part immediately. Does not affect the release gate."""
-    from sellagent_backend.bridge import BridgeError
-
-    if body.language not in ("auto", "hi", "en"):
-        raise bad_request("language must be auto, hi or en")
-    try:
-        session = request.app.state.bridge.start(call_id, language=body.language, use_llm=body.use_llm, supervised=True)
-    except BridgeError as exc:
-        raise bad_request(str(exc), code=exc.code) from exc
-    return session.to_dict()
-
-
-@calls_router.post("/{call_id}/bridge/stop")
-def bridge_stop(call_id: str, request: Request) -> dict:
-    mgr = request.app.state.bridge
-    active = mgr.active
-    if active is None or active.done or active.call_id != call_id:
-        raise bad_request("the AI is not on this call", code="not_active")
-    mgr.stop("operator took over")
-    return {"stopping": True, "call_id": call_id}
-
-
 class TranscriptionConsentIn(BaseModel):
     prospect_consented: bool
     disclosure_text_read: bool

@@ -65,7 +65,7 @@ Samsung Galaxy S25 / Windows 11 PC / with downloaded models.
 | Permission Management | `core/ui/PermissionsScreen.kt` | CI build passes; needs S25 |
 | Manual Calling Mode | human-assisted Dial confirmation; autonomous refused | CI build passes; needs S25 |
 | Logs & Troubleshooting | `core/log/AppLog.kt`, `LogsScreen.kt`, `TroubleshootingScreen.kt` | JVM tests pass; needs S25 |
-| Separate audio feasibility test app | `apps/android-audio-diagnostic` (16-step plan) | CI build passes; needs S25 |
+| Separate audio feasibility test app | `apps/android-audio-diagnostic` (18-step plan) | CI build passes; needs S25 |
 
 ## 4. Local AI engine (CPU, 16 GB RAM, no GPU)
 

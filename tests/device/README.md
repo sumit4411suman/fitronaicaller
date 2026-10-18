@@ -5,6 +5,6 @@ and they only **collect and check evidence**; they never simulate a result.
 
 Run: `set SELLAGENT_DEVICE_TESTS=1` then `pytest tests/device -q`.
 
-Each test queries the local backend for operator-confirmed `real_device` results of the 16 steps in
+Each test queries the local backend for operator-confirmed `real_device` results of the 18 steps in
 `/api/v1/audio-tests/plan`. A step without a confirmed real-device row is reported as **NOT TESTED**
 (pytest `skip` with that reason), never as pass.

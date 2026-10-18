@@ -1,4 +1,4 @@
-"""Screen 18: audio feasibility test console (16-step plan, live device results, operator confirmation, release gate)."""
+"""Screen 18: audio feasibility test console (18-step plan, live device results, operator confirmation, release gate)."""
 
 from __future__ import annotations
 

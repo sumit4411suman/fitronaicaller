@@ -9,7 +9,7 @@
     <string name="nav_report">Report</string>
 
     <string name="runner_title">Audio Feasibility Test</string>
-    <string name="runner_subtitle">16 steps · results go to the PC as audio_test.result</string>
+    <string name="runner_subtitle">18 steps · results go to the PC as audio_test.result</string>
     <string name="runner_no_run">No run in progress. Start a run to create a Test ID.</string>
     <string name="runner_test_id">Test ID</string>
     <string name="runner_start_run">Start new run</string>
@@ -70,7 +70,7 @@
     <string name="ins_call_state_reporting">Place a short call from the Call tab and hang up. The timeline must show TelephonyCallback states; with the default-dialer role it also shows InCallService states with a disconnect cause.</string>
     <string name="ins_outgoing_call">Dial the authorised test number from the Call tab. Pass when the far end rings and answers.</string>
     <string name="ins_remote_speech_capture">During a call ask the far end to speak. Probe the system-only audio sources; they are expected to be unavailable. The mic meter only measures the near-end microphone. Mark Blocked unless remote audio was really captured.</string>
-    <string name="ins_generated_speech_transmission">During a call on speakerphone play the test phrases. Ask the far end what they heard. This is acoustic coupling (speaker → microphone), not uplink injection.</string>
+    <string name="ins_generated_speech_transmission">During a call on speakerphone play the test phrases. Ask the far end what they heard. This is acoustic coupling (speaker → microphone), not digital uplink injection, so it can never PASS step D: mark Blocked and note what was heard.</string>
     <string name="ins_simultaneous_two_way">During a call: play phrases while the far end talks and the mic meter runs. Note whether echo cancellation mutes one side.</string>
     <string name="ins_route_earpiece">During a call switch to earpiece. Record which API worked and whether audio moved.</string>
     <string name="ins_route_speaker">During a call switch to speakerphone. Record which API worked and whether audio moved.</string>
@@ -109,4 +109,9 @@
     <string name="onb_1_body">SELL AGENT Audio Test runs the 16-step audio feasibility plan on this phone with a real call, measures only what Android allows (near-end microphone, speaker playback, routes, acoustic loopback) and sends each result to the PC. It never places campaign calls.</string>
     <string name="call_save_note">Save note to timeline</string>
     <string name="report_tools">Troubleshooting &amp; tools</string>
+    <string name="step_platform_api_support">F. Platform support: public API, OEM or carrier access to call audio</string>
+    <string name="ins_platform_api_support">Tap the button to record which call-audio permissions this app can hold. CAPTURE_AUDIO_OUTPUT and MODIFY_PHONE_STATE are system/OEM-only; if they are denied, digital call audio needs an authorised OEM (Samsung) or carrier (Jio) integration. Mark Blocked if denied.</string>
+    <string name="step_jio_number_retention">G. Jio number retained for outbound and inbound calls</string>
+    <string name="ins_jio_number_retention">Place an outbound call from this phone and ask the far end which number they see; then call the S25 from another phone. Pass only if the existing Jio number is shown outbound and inbound calls reach this phone. Write both observations.</string>
+    <string name="tool_api_support">Record permission / API evidence</string>
 </resources>

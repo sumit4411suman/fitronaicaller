@@ -134,7 +134,7 @@ dialog with transcript, events and notes.
   latency, conversation **SIMULATION**, TTS playback, **SIMULATED LOOPBACK**, AI run log); sales script editor (see §5).
 * **Devices** – pairing window with the code in large gold digits, expiry countdown, LAN addresses/port/TLS
   fingerprint, pending request approve/reject, device list with revoke/delete, LAN listener toggle with a warning.
-  Audio feasibility console: the 16-step plan, latest result per step, operator **Confirm** (real-device rows only),
+  Audio feasibility console: the 18-step plan, latest result per step, operator **Confirm** (real-device rows only),
   manual record dialog (`real_device` or `simulated`), release-gate panel with the backend's explanation; results from
   the diagnostic APK appear live (`audio_test.result`).
 * **System Status** – `/health` JSON, tail of `backend.log`, versions (desktop, backend, protocol), "Open data folder",

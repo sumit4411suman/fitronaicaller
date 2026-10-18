@@ -28,7 +28,7 @@ Every response carries `X-Request-ID`; errors are `{code, error, request_id, det
 | settings | get, patch (typed/validated; release-gate keys read-only), release-gate, release-gate/recompute, retention/run |
 | backup | list, create (passphrase when encryption on), verify, restore (typed confirmation) |
 | devices | pairing open/close/status/decide, list, connected, revoke, delete; device-facing: pair, pair/result, me |
-| audio-tests | plan (16 steps), list, record, confirm, delete, report |
+| audio-tests | plan (18 steps), list, record, confirm, delete, report |
 | ws | `/ws/desktop?token=` (events + emergency stop; local token or JWT), `/ws/device` (Bearer device token), `/ws/transcribe` (PCM16 audio in, transcript out) |
 
 ## WebSocket messages

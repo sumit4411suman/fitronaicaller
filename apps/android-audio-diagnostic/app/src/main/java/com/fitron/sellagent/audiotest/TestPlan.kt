@@ -14,7 +14,7 @@ data class TestStep(
 )
 
 /** Which automatic measurement the Test Runner offers for a step. */
-enum class StepTool { NONE, CONNECTION, CALL_STATE, DIAL, REMOTE_CAPTURE, TTS, TWO_WAY, ROUTE_EARPIECE, ROUTE_SPEAKER, ROUTE_BLUETOOTH, ROUTE_WIRED, LOOPBACK, SCREEN_LOCK, WIFI_DROP, TTS_HINDI, TTS_ENGLISH, VOWIFI }
+enum class StepTool { NONE, CONNECTION, CALL_STATE, DIAL, REMOTE_CAPTURE, TTS, TWO_WAY, ROUTE_EARPIECE, ROUTE_SPEAKER, ROUTE_BLUETOOTH, ROUTE_WIRED, LOOPBACK, SCREEN_LOCK, WIFI_DROP, TTS_HINDI, TTS_ENGLISH, VOWIFI, API_SUPPORT }
 
 object TestPlan {
     val steps: List<TestStep> = listOf(
@@ -34,6 +34,8 @@ object TestPlan {
         TestStep("hindi_phrases", AudioDirection.BOTH, R.string.step_hindi_phrases, R.string.ins_hindi_phrases, StepTool.TTS_HINDI),
         TestStep("english_phrases", AudioDirection.BOTH, R.string.step_english_phrases, R.string.ins_english_phrases, StepTool.TTS_ENGLISH),
         TestStep("jio_wifi_calling", AudioDirection.NONE, R.string.step_jio_wifi_calling, R.string.ins_jio_wifi_calling, StepTool.VOWIFI),
+        TestStep("platform_api_support", AudioDirection.NONE, R.string.step_platform_api_support, R.string.ins_platform_api_support, StepTool.API_SUPPORT),
+        TestStep("jio_number_retention", AudioDirection.NONE, R.string.step_jio_number_retention, R.string.ins_jio_number_retention, StepTool.NONE),
     )
 
     fun byId(step: String): TestStep? = steps.firstOrNull { it.step == step }

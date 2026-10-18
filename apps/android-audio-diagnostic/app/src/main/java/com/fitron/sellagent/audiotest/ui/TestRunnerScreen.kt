@@ -249,6 +249,7 @@ private fun ToolControls(step: TestStep, enabled: Boolean, vm: TestRunnerViewMod
             StepTool.WIFI_DROP -> OutlineButton(stringResource(R.string.tool_wifi_snapshot), enabled = enabled) { vm.wifiEvidence(id) }
             StepTool.TTS_HINDI -> OutlineButton(stringResource(R.string.tool_tts_hindi), enabled = enabled) { vm.tts(id, hindi = true, english = false) }
             StepTool.TTS_ENGLISH -> OutlineButton(stringResource(R.string.tool_tts_english), enabled = enabled) { vm.tts(id, hindi = false, english = true) }
+            StepTool.API_SUPPORT -> OutlineButton(stringResource(R.string.tool_api_support), enabled = enabled) { vm.apiSupportEvidence(id) }
             StepTool.VOWIFI -> {
                 Text(stringResource(R.string.tool_vowifi_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlineButton(stringResource(R.string.tool_vowifi_snapshot), enabled = enabled) { vm.vowifiEvidence(id) }

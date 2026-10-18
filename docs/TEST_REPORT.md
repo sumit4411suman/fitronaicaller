@@ -61,7 +61,7 @@ App startup time, idle RAM, retrieval latency, DB query timings: to be recorded 
 
 ## Real-device audio feasibility (Samsung Galaxy S25, Jio SIM, Wi-Fi Calling)
 
-All 16 steps: **NOT TESTED** (no device in this session). Expected outcomes from documented APIs and the full template are
+All 18 steps: **NOT TESTED** (no device in this session). Expected outcomes from documented APIs and the full template are
 in `docs/TELECOM_FEASIBILITY.md`. Release gate state: **closed**; autonomous calling disabled.
 
 | Test ID | Date | Phone / Android / App | Network | Step | Direction | Expected | Actual | Evidence | Status |

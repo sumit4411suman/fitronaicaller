@@ -9,7 +9,7 @@ import pytest
 
 pytestmark = pytest.mark.device
 
-STEPS = ["pairing", "call_state_reporting", "outgoing_call", "remote_speech_capture", "generated_speech_transmission", "simultaneous_two_way", "route_earpiece", "route_speaker", "route_bluetooth", "route_wired", "latency_echo_quality", "screen_locked", "wifi_interruption", "hindi_phrases", "english_phrases", "jio_wifi_calling"]
+STEPS = ["pairing", "call_state_reporting", "outgoing_call", "remote_speech_capture", "generated_speech_transmission", "simultaneous_two_way", "route_earpiece", "route_speaker", "route_bluetooth", "route_wired", "latency_echo_quality", "screen_locked", "wifi_interruption", "hindi_phrases", "english_phrases", "jio_wifi_calling", "platform_api_support", "jio_number_retention"]
 
 
 @pytest.fixture(scope="module")

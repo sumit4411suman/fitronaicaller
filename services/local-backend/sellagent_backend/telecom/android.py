@@ -27,11 +27,25 @@ def remote_capture_proven(row: AudioTest) -> bool:
     return str((row.evidence or {}).get("remote_capture_possible", "")).strip().lower() == "true"
 
 
+def digital_injection_proven(row: AudioTest) -> bool:
+    """True only if the phone reported that generated audio entered the call uplink through a DIGITAL path.
+
+    Playing speech through a loudspeaker so the phone's microphone picks it up is an acoustic relay and never counts
+    (the diagnostic app records that path as evidence["path"] = "acoustic: ..."). No public Android API offers a
+    digital uplink for a third-party app on a cellular call, so this is expected to stay false.
+    """
+    ev = row.evidence or {}
+    if str(ev.get("path", "")).lower().startswith("acoustic"):
+        return False
+    return str(ev.get("uplink_injection", "")).strip().lower() == "digital"
+
+
 def audio_gate_status(session: Session, device_id: str | None = None) -> dict:
     """Both directions must have an operator-confirmed real-device PASS for the gate to open.
 
     Only the dedicated steps count: step 4 (remote speech capture, with probe evidence) for inbound and
-    step 5 (generated speech transmission) for outbound. "Both"-direction steps such as the Hindi/English
+    step 5 (generated speech transmission, only through a verified digital uplink - never an acoustic relay) for
+    outbound. "Both"-direction steps such as the Hindi/English
     phrases are quality checks and never open the gate on their own.
     """
     q = select(AudioTest).where(AudioTest.kind == "real_device", AudioTest.operator_confirmed.is_(True), AudioTest.status == "pass")
@@ -39,7 +53,7 @@ def audio_gate_status(session: Session, device_id: str | None = None) -> dict:
         q = q.where(AudioTest.device_id == device_id)
     rows = list(session.scalars(q))
     inbound = [r for r in rows if r.step == INBOUND_STEP and remote_capture_proven(r)]
-    outbound = [r for r in rows if r.step == OUTBOUND_STEP]
+    outbound = [r for r in rows if r.step == OUTBOUND_STEP and digital_injection_proven(r)]
     return {
         "remote_audio_capture_verified": bool(inbound), "audio_injection_verified": bool(outbound),
         "allowed": bool(inbound) and bool(outbound),

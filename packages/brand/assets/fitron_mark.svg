@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>FITRON mark</title>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E6C85A"/>
+      <stop offset="0.5" stop-color="#D4AF37"/>
+      <stop offset="1" stop-color="#B8962E"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#0B0B0B"/>
+  <!-- outer segmented ring -->
+  <g fill="none" stroke="url(#gold)" stroke-width="10" stroke-linecap="round">
+    <path d="M 512 100 A 412 412 0 0 1 924 512"/>
+    <path d="M 924 512 A 412 412 0 0 1 512 924"/>
+    <path d="M 512 924 A 412 412 0 0 1 100 512"/>
+    <path d="M 100 512 A 412 412 0 0 1 512 100"/>
+  </g>
+  <!-- inner ring with gaps -->
+  <g fill="none" stroke="url(#gold)" stroke-width="12" stroke-linecap="round">
+    <path d="M 230 300 A 352 352 0 0 1 794 300"/>
+    <path d="M 850 400 A 352 352 0 0 1 760 780"/>
+    <path d="M 700 830 A 352 352 0 0 1 324 830"/>
+    <path d="M 264 780 A 352 352 0 0 1 174 400"/>
+  </g>
+  <!-- ring nodes -->
+  <g fill="#D4AF37">
+    <circle cx="512" cy="100" r="18"/><circle cx="924" cy="512" r="18"/>
+    <circle cx="512" cy="924" r="18"/><circle cx="100" cy="512" r="18"/>
+  </g>
+  <!-- F with heartbeat -->
+  <g fill="none" stroke="url(#gold)" stroke-width="46" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 398 690 L 398 318 L 640 318"/>
+    <path d="M 418 492 L 462 492 L 488 426 L 532 592 L 560 492 L 632 492"/>
+  </g>
+  <!-- barbell cap on the F -->
+  <rect x="634" y="268" width="46" height="100" rx="18" fill="#B8962E"/>
+  <!-- dumbbell -->
+  <g fill="#B8962E">
+    <rect x="340" y="728" width="26" height="56" rx="10"/>
+    <rect x="376" y="712" width="40" height="88" rx="14"/>
+    <rect x="416" y="742" width="192" height="28" rx="8" fill="#D4AF37"/>
+    <rect x="608" y="712" width="40" height="88" rx="14"/>
+    <rect x="658" y="728" width="26" height="56" rx="10"/>
+  </g>
+</svg>

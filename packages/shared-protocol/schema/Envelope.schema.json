@@ -1,0 +1,72 @@
+{
+  "$defs": {
+    "MessageType": {
+      "enum": [
+        "pairing.request",
+        "pairing.response",
+        "pairing.complete",
+        "session.heartbeat",
+        "session.heartbeat_ack",
+        "session.reconnect",
+        "session.reconnect_ack",
+        "session.capabilities",
+        "call.request",
+        "call.state",
+        "call.cancel",
+        "audio_test.start",
+        "audio_test.event",
+        "audio_test.result",
+        "safety.emergency_stop",
+        "safety.emergency_stop_ack",
+        "error",
+        "ack"
+      ],
+      "title": "MessageType",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "in_reply_to": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "In Reply To"
+    },
+    "message_id": {
+      "title": "Message Id",
+      "type": "string"
+    },
+    "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+    },
+    "protocol_version": {
+      "default": "1.0",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "sent_at": {
+      "format": "date-time",
+      "title": "Sent At",
+      "type": "string"
+    },
+    "type": {
+      "$ref": "#/$defs/MessageType"
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "title": "Envelope",
+  "type": "object",
+  "x-protocol-version": "1.0"
+}

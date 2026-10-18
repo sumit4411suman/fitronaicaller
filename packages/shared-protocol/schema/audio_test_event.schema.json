@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "AudioDirection": {
+      "enum": [
+        "inbound",
+        "outbound",
+        "both",
+        "none"
+      ],
+      "title": "AudioDirection",
+      "type": "string"
+    },
+    "AudioRoute": {
+      "enum": [
+        "earpiece",
+        "speaker",
+        "bluetooth",
+        "wired_headset",
+        "unknown"
+      ],
+      "title": "AudioRoute",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "direction": {
+      "$ref": "#/$defs/AudioDirection",
+      "default": "none"
+    },
+    "latency_ms": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latency Ms"
+    },
+    "level_dbfs": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Level Dbfs"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "route": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AudioRoute"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "step": {
+      "title": "Step",
+      "type": "string"
+    },
+    "test_id": {
+      "title": "Test Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "test_id",
+    "step"
+  ],
+  "title": "AudioTestEvent",
+  "type": "object",
+  "x-protocol-version": "1.0"
+}

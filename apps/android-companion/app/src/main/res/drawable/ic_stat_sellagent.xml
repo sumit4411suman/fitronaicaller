@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon: white-only silhouette of the F-with-heartbeat mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <path android:pathData="M 398 760 L 398 250 L 700 250" android:strokeColor="#FFFFFFFF" android:strokeWidth="90" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
+    <path android:pathData="M 398 500 L 470 500 L 510 400 L 570 640 L 610 500 L 700 500" android:strokeColor="#FFFFFFFF" android:strokeWidth="90" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
+</vector>

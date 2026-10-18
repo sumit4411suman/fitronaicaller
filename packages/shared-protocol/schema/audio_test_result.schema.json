@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "AudioDirection": {
+      "enum": [
+        "inbound",
+        "outbound",
+        "both",
+        "none"
+      ],
+      "title": "AudioDirection",
+      "type": "string"
+    },
+    "AudioRoute": {
+      "enum": [
+        "earpiece",
+        "speaker",
+        "bluetooth",
+        "wired_headset",
+        "unknown"
+      ],
+      "title": "AudioRoute",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Final outcome of one diagnostic step, reported by the device.\n\n``status`` is never inferred by the backend; the device sets it from what\nit actually observed, and the operator confirms it on Windows.",
+  "properties": {
+    "api_used": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Api Used"
+    },
+    "direction": {
+      "$ref": "#/$defs/AudioDirection"
+    },
+    "error_message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Message"
+    },
+    "evidence": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Evidence",
+      "type": "object"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "route": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AudioRoute"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail",
+        "blocked",
+        "not_tested"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "step": {
+      "title": "Step",
+      "type": "string"
+    },
+    "test_id": {
+      "title": "Test Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "test_id",
+    "step",
+    "direction",
+    "status"
+  ],
+  "title": "AudioTestResult",
+  "type": "object",
+  "x-protocol-version": "1.0"
+}

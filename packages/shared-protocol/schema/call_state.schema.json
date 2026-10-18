@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "AudioRoute": {
+      "enum": [
+        "earpiece",
+        "speaker",
+        "bluetooth",
+        "wired_headset",
+        "unknown"
+      ],
+      "title": "AudioRoute",
+      "type": "string"
+    },
+    "CallState": {
+      "description": "Call states as reported by the Android companion.\n\nThese map onto documented ``android.telecom.Call`` states\n(``STATE_DIALING``, ``STATE_RINGING``, ``STATE_ACTIVE``, ``STATE_HOLDING``,\n``STATE_DISCONNECTED``) and ``TelephonyCallback.CallStateListener`` states\n(``CALL_STATE_IDLE``, ``CALL_STATE_RINGING``, ``CALL_STATE_OFFHOOK``).\n``UNKNOWN`` is reported when the app can only observe coarse state.",
+      "enum": [
+        "requested",
+        "dialing",
+        "ringing",
+        "active",
+        "holding",
+        "disconnected",
+        "failed",
+        "rejected",
+        "offhook",
+        "idle",
+        "unknown"
+      ],
+      "title": "CallState",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "audio_route": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AudioRoute"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "call_job_id": {
+      "title": "Call Job Id",
+      "type": "string"
+    },
+    "detail": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Detail"
+    },
+    "disconnect_cause": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Disconnect Cause"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "source": {
+      "default": "app",
+      "enum": [
+        "in_call_service",
+        "telephony_callback",
+        "app"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/CallState"
+    }
+  },
+  "required": [
+    "call_job_id",
+    "state"
+  ],
+  "title": "CallStateEvent",
+  "type": "object",
+  "x-protocol-version": "1.0"
+}

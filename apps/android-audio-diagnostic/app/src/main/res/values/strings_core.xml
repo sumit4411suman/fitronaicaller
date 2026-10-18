@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="cancel">Cancel</string>
+    <string name="granted">Granted</string>
+    <string name="not_granted">Not granted</string>
+    <string name="unknown_no_public_api">Unknown (no public API)</string>
+    <string name="transport_log">Transport log</string>
+
+    <string name="conn_stopped">Stopped</string>
+    <string name="conn_unpaired">Not paired</string>
+    <string name="conn_connecting">Connecting…</string>
+    <string name="conn_connected">Connected to %1$s</string>
+    <string name="conn_backoff">Retry in %1$d s (%2$s)</string>
+
+    <string name="pairing_title">Pairing</string>
+    <string name="pairing_subtitle">Protocol %1$s · TLS fingerprint pinned</string>
+    <string name="pairing_connection">Connection</string>
+    <string name="pairing_state">State</string>
+    <string name="pairing_backend">Backend</string>
+    <string name="pairing_device_id">Device id</string>
+    <string name="pairing_endpoint">Endpoint</string>
+    <string name="pairing_pinned_fp">Pinned SHA-256</string>
+    <string name="pairing_token_hidden">The device token is stored in Android Keystore-backed encrypted preferences and is never shown or logged.</string>
+    <string name="pairing_reconnect">Reconnect now</string>
+    <string name="pairing_forget">Forget pairing</string>
+    <string name="pairing_form_title">Pair with the Windows PC</string>
+    <string name="pairing_form_help">On Windows open Devices › Pair. Enter the PC\'s LAN IP, port, the pairing code and the certificate SHA-256 fingerprint exactly as shown. Then approve the request on the PC.</string>
+    <string name="pairing_host">PC IP address</string>
+    <string name="pairing_port">Port</string>
+    <string name="pairing_code">Pairing code</string>
+    <string name="pairing_fingerprint">TLS fingerprint (SHA-256, AA:BB:…)</string>
+    <string name="pairing_pair">Pair</string>
+    <string name="pairing_status">Status</string>
+    <string name="pairing_status_idle">Ready</string>
+    <string name="pairing_status_checking">Checking TLS fingerprint and sending request…</string>
+    <string name="pairing_status_waiting">Waiting for approval on the PC (%1$d s)</string>
+    <string name="pairing_status_approved">Approved. Token stored securely.</string>
+    <string name="pairing_status_failed">Failed: %1$s</string>
+    <string name="pairing_security_title">Security</string>
+    <string name="pairing_security_text">The connection is accepted only if the server certificate\'s SHA-256 fingerprint equals the one you typed. System CAs are not consulted, and certificate checks are never disabled. If the PC regenerates its certificate you must pair again.</string>
+
+    <string name="perm_title">Permissions &amp; Capabilities</string>
+    <string name="perm_subtitle">Every value below is read from Android right now</string>
+    <string name="perm_runtime">Runtime permissions</string>
+    <string name="perm_request_all">Request permissions</string>
+    <string name="perm_open_settings">App settings</string>
+    <string name="perm_dialer_title">Default dialer role</string>
+    <string name="perm_dialer_why">Why: an InCallService is the only supported way for an app to see detailed call states (dialing, ringing, active, holding, disconnected with cause), to set the audio route and to end a call. Android binds our InCallService only while this app is the default phone app. You can switch back to Samsung Phone at any time.</string>
+    <string name="perm_dialer_role">ROLE_DIALER held</string>
+    <string name="perm_incall_bound">InCallService bound</string>
+    <string name="perm_request_dialer">Request default dialer</string>
+    <string name="perm_default_apps">Default apps</string>
+    <string name="perm_fgs_title">Foreground service</string>
+    <string name="perm_fgs_running">Running</string>
+    <string name="perm_fgs_types">Types in use</string>
+    <string name="perm_fgs_start">Start &amp; verify</string>
+    <string name="perm_fgs_stop">Stop</string>
+    <string name="perm_caps_title">Derived capabilities (sent to the PC)</string>
+    <string name="perm_caps_help">Each flag is true only when the fact under it was verified by the platform API named. remote_audio_capture_verified and audio_injection_verified are always false from the app; only the PC can set them from operator-confirmed real-device test records.</string>
+    <string name="cap_can_place_calls">can_place_calls</string>
+    <string name="cap_reports_call_state">reports_call_state</string>
+    <string name="cap_is_default_dialer">is_default_dialer</string>
+    <string name="cap_can_control_audio_route">can_control_audio_route</string>
+    <string name="cap_can_end_calls">can_end_calls</string>
+    <string name="cap_supports_fgs">supports_foreground_service</string>
+    <string name="cap_remote_capture">remote_audio_capture_verified</string>
+    <string name="cap_injection">audio_injection_verified</string>
+    <string name="cap_backend_only">never set by the app</string>
+    <string name="cap_wifi_calling">wifi_calling_active</string>
+    <string name="perm_send_caps">Send session.capabilities</string>
+    <string name="perm_send_caps_offline">Connect to the PC first; capabilities are also included in every heartbeat.</string>
+    <string name="perm_limits_title">What a normal app cannot do</string>
+    <string name="perm_limits_text">• MediaRecorder.AudioSource.VOICE_CALL / VOICE_DOWNLINK / VOICE_UPLINK need the system permission CAPTURE_AUDIO_OUTPUT, which is not grantable to third-party apps.\n• AudioPlaybackCapture explicitly excludes voice-call audio.\n• There is no public API to inject audio into the cellular/VoWiFi uplink.\n• TelephonyManager.isWifiCallingAvailable is hidden; VoWiFi status is reported as unknown.\nTherefore only the acoustic path (loudspeaker → far end, near-end microphone) can be tested by this software.</string>
+
+    <string name="fgs_channel_name">SELL AGENT connection</string>
+    <string name="fgs_channel_description">Keeps the link to the Windows PC alive during calls</string>
+    <string name="fgs_title">SELL AGENT</string>
+    <string name="fgs_default_reason">Connected to the PC</string>
+    <string name="fgs_reason_verify">Verifying foreground service</string>
+</resources>

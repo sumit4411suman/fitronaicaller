@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sell-agent"
+version = "0.1.0"
+description = "SELL AGENT - local, privacy-first AI-assisted sales calling platform for FITRON gym accounting software"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary - see LICENSES/README.md" }
+dependencies = [
+    "fastapi==0.143.3",
+    "uvicorn[standard]==0.54.0",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.0",
+    "sqlalchemy==2.1.4",
+    "alembic==1.20.0",
+    "httpx==0.28.1",
+    "websockets==17.2",
+    "phonenumbers==9.0.41",
+    "openpyxl==3.1.5",
+    "cryptography==50.0.2",
+    "python-multipart>=0.0.20",
+    "numpy==2.5.4",
+]
+
+[project.optional-dependencies]
+desktop = ["PySide6-Essentials==6.8.3"]
+speech = ["faster-whisper==1.2.1", "piper-tts==1.8.0", "sounddevice==0.5.6"]
+windows = ["keyring==25.7.0", "psutil>=6.0"]
+dev = ["pytest==9.1.1", "pytest-asyncio==1.4.0", "ruff>=0.6", "mypy>=1.11", "pyinstaller==6.22.3"]
+
+[project.scripts]
+sellagent-backend = "sellagent_backend.main:cli"
+sellagent-desktop = "sellagent_desktop.main:main"
+sellagent-benchmark = "sellagent_ai.benchmark:cli"
+
+[tool.setuptools.package-dir]
+"sellagent_backend" = "services/local-backend/sellagent_backend"
+"sellagent_ai" = "services/ai-engine/sellagent_ai"
+"sellagent_speech" = "services/speech-engine/sellagent_speech"
+"sellagent_kb" = "services/knowledge-base/sellagent_kb"
+"sellagent_protocol" = "packages/shared-protocol/sellagent_protocol"
+"sellagent_desktop" = "apps/windows-desktop/sellagent_desktop"
+
+[tool.setuptools.packages.find]
+where = ["services/local-backend", "services/ai-engine", "services/speech-engine", "services/knowledge-base", "packages/shared-protocol", "apps/windows-desktop"]
+include = ["sellagent_*", "sellagent_*.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [
+    "services/local-backend",
+    "services/ai-engine",
+    "services/speech-engine",
+    "services/knowledge-base",
+    "packages/shared-protocol",
+    "apps/windows-desktop",
+]
+asyncio_mode = "auto"
+markers = [
+    "automated: fully automated test, no external resources",
+    "simulated: uses fakes or simulated audio; NOT evidence of real cellular audio support",
+    "device: requires the physical Samsung Galaxy S25 and Jio SIM; skipped unless SELLAGENT_DEVICE_TESTS=1",
+    "model: requires downloaded local AI models; skipped unless present",
+    "ui: requires PySide6 (offscreen platform)",
+]
+filterwarnings = ["error::sqlalchemy.exc.SAWarning"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101", "S311", "B008", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true

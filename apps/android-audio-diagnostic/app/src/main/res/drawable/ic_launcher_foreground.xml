@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Converted from packages/brand/assets/fitron_mark.svg. The 1024-unit mark is scaled to the 66% adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:pivotX="512"
+        android:pivotY="512">
+        <!-- outer segmented ring -->
+        <path android:pathData="M 512 100 A 412 412 0 0 1 924 512" android:strokeColor="#E6C85A" android:strokeWidth="10" android:strokeLineCap="round" android:fillColor="#00000000" />
+        <path android:pathData="M 924 512 A 412 412 0 0 1 512 924" android:strokeColor="#D4AF37" android:strokeWidth="10" android:strokeLineCap="round" android:fillColor="#00000000" />
+        <path android:pathData="M 512 924 A 412 412 0 0 1 100 512" android:strokeColor="#B8962E" android:strokeWidth="10" android:strokeLineCap="round" android:fillColor="#00000000" />
+        <path android:pathData="M 100 512 A 412 412 0 0 1 512 100" android:strokeColor="#D4AF37" android:strokeWidth="10" android:strokeLineCap="round" android:fillColor="#00000000" />
+        <!-- inner ring with gaps -->
+        <path android:pathData="M 230 300 A 352 352 0 0 1 794 300" android:strokeColor="#E6C85A" android:strokeWidth="12" android:strokeLineCap="round" android:fillColor="#00000000" />
+        <path android:pathData="M 850 400 A 352 352 0 0 1 760 780" android:strokeColor="#D4AF37" android:strokeWidth="12" android:strokeLineCap="round" android:fillColor="#00000000" />
+        <path android:pathData="M 700 830 A 352 352 0 0 1 324 830" android:strokeColor="#B8962E" android:strokeWidth="12" android:strokeLineCap="round" android:fillColor="#00000000" />
+        <path android:pathData="M 264 780 A 352 352 0 0 1 174 400" android:strokeColor="#D4AF37" android:strokeWidth="12" android:strokeLineCap="round" android:fillColor="#00000000" />
+        <!-- ring nodes -->
+        <path android:fillColor="#D4AF37" android:pathData="M 494 100 a 18 18 0 1 0 36 0 a 18 18 0 1 0 -36 0 Z" />
+        <path android:fillColor="#D4AF37" android:pathData="M 906 512 a 18 18 0 1 0 36 0 a 18 18 0 1 0 -36 0 Z" />
+        <path android:fillColor="#D4AF37" android:pathData="M 494 924 a 18 18 0 1 0 36 0 a 18 18 0 1 0 -36 0 Z" />
+        <path android:fillColor="#D4AF37" android:pathData="M 82 512 a 18 18 0 1 0 36 0 a 18 18 0 1 0 -36 0 Z" />
+        <!-- F with heartbeat -->
+        <path android:pathData="M 398 690 L 398 318 L 640 318" android:strokeColor="#D4AF37" android:strokeWidth="46" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
+        <path android:pathData="M 418 492 L 462 492 L 488 426 L 532 592 L 560 492 L 632 492" android:strokeColor="#E6C85A" android:strokeWidth="46" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
+        <!-- barbell cap on the F -->
+        <path android:fillColor="#B8962E" android:pathData="M 652 268 h 10 a 18 18 0 0 1 18 18 v 64 a 18 18 0 0 1 -18 18 h -10 a 18 18 0 0 1 -18 -18 v -64 a 18 18 0 0 1 18 -18 Z" />
+        <!-- dumbbell -->
+        <path android:fillColor="#B8962E" android:pathData="M 350 728 h 6 a 10 10 0 0 1 10 10 v 36 a 10 10 0 0 1 -10 10 h -6 a 10 10 0 0 1 -10 -10 v -36 a 10 10 0 0 1 10 -10 Z" />
+        <path android:fillColor="#B8962E" android:pathData="M 390 712 h 12 a 14 14 0 0 1 14 14 v 60 a 14 14 0 0 1 -14 14 h -12 a 14 14 0 0 1 -14 -14 v -60 a 14 14 0 0 1 14 -14 Z" />
+        <path android:fillColor="#D4AF37" android:pathData="M 424 742 h 176 a 8 8 0 0 1 8 8 v 12 a 8 8 0 0 1 -8 8 h -176 a 8 8 0 0 1 -8 -8 v -12 a 8 8 0 0 1 8 -8 Z" />
+        <path android:fillColor="#B8962E" android:pathData="M 622 712 h 12 a 14 14 0 0 1 14 14 v 60 a 14 14 0 0 1 -14 14 h -12 a 14 14 0 0 1 -14 -14 v -60 a 14 14 0 0 1 14 -14 Z" />
+        <path android:fillColor="#B8962E" android:pathData="M 668 728 h 6 a 10 10 0 0 1 10 10 v 36 a 10 10 0 0 1 -10 10 h -6 a 10 10 0 0 1 -10 -10 v -36 a 10 10 0 0 1 10 -10 Z" />
+    </group>
+</vector>

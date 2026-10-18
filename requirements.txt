@@ -1,0 +1,14 @@
+# Pinned core runtime (Windows 11, Python 3.12.x). Tested versions - see docs/DEPENDENCIES.md
+fastapi==0.143.3
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+pydantic-settings==2.16.0
+sqlalchemy==2.1.4
+alembic==1.20.0
+httpx==0.28.1
+websockets==17.2
+phonenumbers==9.0.41
+openpyxl==3.1.5
+cryptography==50.0.2
+python-multipart>=0.0.20
+numpy==2.5.4

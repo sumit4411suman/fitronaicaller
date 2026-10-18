@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "emergency_stop_active": {
+      "default": false,
+      "title": "Emergency Stop Active",
+      "type": "boolean"
+    },
+    "server_time": {
+      "format": "date-time",
+      "title": "Server Time",
+      "type": "string"
+    }
+  },
+  "title": "HeartbeatAck",
+  "type": "object",
+  "x-protocol-version": "1.0"
+}

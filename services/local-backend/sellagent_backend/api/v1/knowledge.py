@@ -57,19 +57,58 @@ def create(body: KnowledgeIn, db: Session = Depends(get_db)) -> KnowledgeDocumen
 async def import_doc(db: Session = Depends(get_db), file: UploadFile = File(...), category: str = "general", language: str = "en") -> KnowledgeDocument:
     """Import a .txt/.md document as UNTRUSTED, pending review. Injection screening flags are attached."""
     data = await file.read()
-    if len(data) > 2_000_000:
-        raise bad_request("file too large (2 MB max)")
+    if len(data) > 15_000_000:
+        raise bad_request("file too large (15 MB max)")
     name = (file.filename or "upload.txt").lower()
-    if not name.endswith((".txt", ".md", ".csv")):
-        raise bad_request("only .txt, .md and .csv imports are supported in this version; convert PDF/DOCX to text first")
     try:
-        text = data.decode("utf-8")
-    except UnicodeDecodeError:
-        text = data.decode("latin-1")
+        text = extract_text(name, data)
+    except ValueError as exc:
+        raise bad_request(str(exc)) from exc
+    if not text.strip():
+        raise bad_request("no text could be extracted (scanned PDFs need OCR first)")
     try:
         return create_document(db, title=file.filename or "Imported document", body=text, category=category, language=language, source=f"import:{file.filename}", trusted=False)
     except KnowledgeError as exc:
         raise bad_request(str(exc)) from exc
+
+
+def extract_text(name: str, data: bytes) -> str:
+    """Plain text from .txt/.md/.csv/.pdf/.docx. Imported text is untrusted and goes to review."""
+    import io
+
+    if name.endswith((".txt", ".md", ".csv")):
+        try:
+            return data.decode("utf-8")
+        except UnicodeDecodeError:
+            return data.decode("latin-1")
+    if name.endswith(".pdf"):
+        from pypdf import PdfReader
+        from pypdf.errors import PdfReadError
+
+        try:
+            reader = PdfReader(io.BytesIO(data))
+            if reader.is_encrypted:
+                raise ValueError("encrypted PDFs are not supported")
+            if len(reader.pages) > 300:
+                raise ValueError("PDF has more than 300 pages")
+            return "\n\n".join((p.extract_text() or "") for p in reader.pages)
+        except PdfReadError as exc:
+            raise ValueError(f"could not read PDF: {exc}") from exc
+    if name.endswith(".docx"):
+        import zipfile
+
+        from docx import Document
+
+        try:
+            doc = Document(io.BytesIO(data))
+        except (zipfile.BadZipFile, KeyError, ValueError) as exc:
+            raise ValueError(f"could not read DOCX: {exc}") from exc
+        parts = [p.text for p in doc.paragraphs]
+        for t in doc.tables:
+            for row in t.rows:
+                parts.append(" | ".join(c.text for c in row.cells))
+        return "\n".join(parts)
+    raise ValueError("supported formats: .txt, .md, .csv, .pdf, .docx")
 
 
 @router.get("/retrieve", response_model=list[RetrieveOut])

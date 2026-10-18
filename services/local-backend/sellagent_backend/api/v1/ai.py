@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 from sellagent_ai.conversation import ConversationContext, ConversationStateMachine, KnowledgeFact, State
 from sellagent_ai.guardrails import check_reply
 from sellagent_ai.language import detect
@@ -48,6 +49,7 @@ def catalog() -> dict:
     """Candidate models for a 16 GB CPU-only PC. Sizes are approximate download sizes; verify in Ollama before pulling."""
     return {"note": "Nothing is downloaded automatically. Benchmarks on YOUR hardware decide the pick (python -m sellagent_ai.benchmark).", "candidates": [
         {"name": "qwen3:1.7b", "params": "1.7B", "approx_download_gb": 1.4, "approx_ram_gb": 2.5, "license": "Apache-2.0", "notes": "Default candidate. Hindi/English capable; set think=false for latency."},
+        {"name": "qwen2.5:3b", "params": "3B", "approx_download_gb": 1.9, "approx_ram_gb": 3.5, "license": "Qwen Research License (NON-COMMERCIAL)", "license_warning": "Qwen2.5-3B is released under a research licence that does not allow commercial use. Selling FITRON is commercial: get written permission from Alibaba Cloud or choose qwen3:1.7b / qwen3:4b (Apache-2.0).", "notes": "Blueprint alternative. Pull requires acknowledging the licence."},
         {"name": "qwen3:4b", "params": "4B", "approx_download_gb": 2.6, "approx_ram_gb": 5, "license": "Apache-2.0", "notes": "3B-class alternative; slower first token on CPU. (Qwen2.5-3B was dropped: Qwen Research License is non-commercial.)"},
     ]}
 
@@ -57,6 +59,8 @@ async def pull_model(body: ModelPullIn, request: Request, db: Session = Depends(
     allow = bool(request.app.state.settings.allow_external_network) or bool(settings_service.get(db, "privacy.allow_external_network"))
     if not body.acknowledge_download:
         raise bad_request("acknowledge_download must be true: this downloads a model (size shown in /ai/catalog)")
+    if body.model.startswith("qwen2.5") and not body.acknowledge_license:
+        raise bad_request("qwen2.5 models use the non-commercial Qwen Research License; set acknowledge_license=true after confirming you have permission", code="license_ack_required")
     provider, _ = _provider(request, db)
     if provider.name != "ollama":
         raise bad_request("model pull is only supported through Ollama; for llama.cpp place the GGUF file manually (models/README.md)")
@@ -115,3 +119,64 @@ def runs(db: Session = Depends(get_db), limit: int = 100) -> list[dict]:
 
     rows = db.scalars(select(AIRun).order_by(AIRun.created_at.desc()).limit(min(limit, 1000)))
     return [{"id": r.id, "created_at": r.created_at, "kind": r.kind, "provider": r.provider, "model": r.model, "first_token_ms": r.first_token_ms, "total_ms": r.total_ms, "tokens_per_second": r.tokens_per_second, "rss_mb": r.rss_mb, "success": r.success, "error": r.error, "offline": r.offline} for r in rows]
+
+
+@router.post("/chat-stream")
+async def chat_stream(body: ChatTestIn, request: Request) -> StreamingResponse:
+    """Streams the local model's reply as Server-Sent Events (data: {"token": ...}), through the AI worker so only
+    one CPU inference runs at a time. The final event carries metrics and the guardrail verdict."""
+    import asyncio
+    import json
+    import time
+
+    with request.app.state.session_factory() as db:
+        provider, model = _provider(request, db)
+    lang = body.language if body.language != "auto" else ("hi" if detect(body.prompt) in ("hi", "mixed") else "en")
+    sys_prompt = "Reply briefly in Hindi (Devanagari)." if lang == "hi" else "Reply briefly in English."
+    msgs = [ChatMessage("system", sys_prompt), ChatMessage("user", body.prompt)]
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+    timeout = request.app.state.settings.llm_timeout_seconds
+
+    def _produce(cancel, push) -> None:  # type: ignore[no-untyped-def]
+        for piece in provider.stream(msgs, model=model, max_tokens=body.max_tokens, cancel=cancel, timeout=timeout):
+            push(piece)
+
+    job = request.app.state.workers.ai.submit_stream("chat_stream", _produce, loop, queue)
+
+    async def gen():  # type: ignore[no-untyped-def]
+        t0 = time.perf_counter()
+        first = None
+        parts: list[str] = []
+        yield f"event: start\ndata: {json.dumps({'job_id': job.id, 'model': model, 'provider': provider.name})}\n\n"
+        try:
+            while True:
+                if await request.is_disconnected():
+                    job.cancel.cancel()
+                    break
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout)
+                except TimeoutError:
+                    job.cancel.cancel()
+                    yield f"event: error\ndata: {json.dumps({'error': 'timeout'})}\n\n"
+                    break
+                if item is None:
+                    break
+                if isinstance(item, dict):
+                    yield f"event: error\ndata: {json.dumps(item)}\n\n"
+                    continue
+                if first is None:
+                    first = time.perf_counter()
+                parts.append(item)
+                yield f"data: {json.dumps({'token': item}, ensure_ascii=False)}\n\n"
+        finally:
+            text = "".join(parts)
+            total = (time.perf_counter() - t0) * 1000
+            gr = check_reply(text, approved_facts=[{"price_inr": 1999}], state="diagnostic") if text else None
+            done = {"job_id": job.id, "status": job.status, "first_token_ms": ((first - t0) * 1000) if first else None, "total_ms": total, "chars": len(text), "guardrail": gr.to_dict() if gr else None, "label": "diagnostic (not a call)"}
+            with request.app.state.session_factory() as db2:
+                db2.add(AIRun(kind="llm", provider=provider.name, model=model, prompt_chars=len(body.prompt), output_chars=len(text), first_token_ms=done["first_token_ms"], total_ms=total, success=job.status == "done", error=job.error))
+                db2.commit()
+            yield f"event: done\ndata: {json.dumps(done, default=str)}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})

@@ -6773,6 +6773,80 @@
         }
       }
     },
+    "/api/v1/ai/chat-stream": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Chat Stream",
+        "description": "Streams the local model's reply as Server-Sent Events (data: {\"token\": ...}), through the AI worker so only\none CPU inference runs at a time. The final event carries metrics and the guardrail verdict.",
+        "operationId": "chat_stream_api_v1_ai_chat_stream_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-local-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatTestIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/speech/status": {
       "get": {
         "tags": [
@@ -12388,6 +12462,11 @@
           "acknowledge_download": {
             "type": "boolean",
             "title": "Acknowledge Download",
+            "default": false
+          },
+          "acknowledge_license": {
+            "type": "boolean",
+            "title": "Acknowledge License",
             "default": false
           }
         },

@@ -31,6 +31,7 @@ from sellagent_backend.api.v1 import (
     reports,
     speech,
     system,
+    transcribe,
     ws,
 )
 from sellagent_backend.api.v1 import settings as settings_api
@@ -177,6 +178,6 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
         log.exception("unhandled error (request %s)", getattr(request.state, "request_id", None))
         return JSONResponse({"code": "internal_error", "error": "internal error; see backend log", "request_id": getattr(request.state, "request_id", None)}, status_code=500)
 
-    for r in (health.router, auth.public_router, auth.router, auth.users_router, calls.safety_router, contacts.router, contacts.sup_router, campaigns.router, calls.router, calls.calls_router, followups.router, knowledge.router, ai.router, speech.router, reports.router, reports.audit_router, settings_api.router, settings_api.backup_router, devices.router, devices.device_public_router, audio_tests.router, system.router, reports.generated_router, ws.router):
+    for r in (health.router, auth.public_router, auth.router, auth.users_router, calls.safety_router, contacts.router, contacts.sup_router, campaigns.router, calls.router, calls.calls_router, followups.router, knowledge.router, ai.router, speech.router, reports.router, reports.audit_router, settings_api.router, settings_api.backup_router, devices.router, devices.device_public_router, audio_tests.router, system.router, reports.generated_router, ws.router, transcribe.router):
         app.include_router(r, prefix=API_PREFIX)
     return app

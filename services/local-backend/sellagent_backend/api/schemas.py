@@ -481,3 +481,4 @@ class TTSIn(BaseModel):
 class ModelPullIn(BaseModel):
     model: str = Field(min_length=1, max_length=100)
     acknowledge_download: bool = False
+    acknowledge_license: bool = False

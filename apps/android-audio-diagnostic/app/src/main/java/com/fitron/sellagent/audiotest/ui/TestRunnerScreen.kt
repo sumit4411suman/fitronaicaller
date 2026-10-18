@@ -175,7 +175,10 @@ private fun StepCard(
                 Text(stringResource(R.string.runner_sent), style = MaterialTheme.typography.labelSmall, color = BrandColors.Success)
             }
         }
-        if (!expanded) return@SectionCard
+        if (!expanded) {
+            OutlineButton(stringResource(R.string.runner_open_step), modifier = Modifier.fillMaxWidth(), onClick = onToggle)
+            return@SectionCard
+        }
         Text(stringResource(step.instruction), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         ToolControls(step, enabled, vm)

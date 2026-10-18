@@ -24,6 +24,7 @@
     <string name="runner_mark_fail">Fail</string>
     <string name="runner_mark_blocked">Blocked</string>
     <string name="runner_mark_not_tested">Not tested</string>
+    <string name="runner_open_step">Open step</string>
     <string name="runner_sent">sent</string>
     <string name="runner_queued">queued</string>
     <string name="runner_busy">Measuring…</string>

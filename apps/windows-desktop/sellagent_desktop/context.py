@@ -23,3 +23,8 @@ class AppContext:
     health_cache: dict[str, Any] = field(default_factory=dict)
     emergency_stop_active: bool = False
     backend_owned: bool = False
+    ai_status: dict[str, Any] = field(default_factory=dict)
+    speech_status: dict[str, Any] = field(default_factory=dict)
+    devices: list[dict[str, Any]] = field(default_factory=list)
+    connected_devices: list[str] = field(default_factory=list)
+    last_heartbeat: dict[str, Any] = field(default_factory=dict)  # latest session.heartbeat payload (+ received_at)

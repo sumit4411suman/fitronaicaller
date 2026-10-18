@@ -16,20 +16,29 @@ MIN_POINT_SIZE = 10  # ~13px at 96 dpi; accessibility floor
 
 # Minimal additions for widget types the brand sheet does not mention. Only brand colours are used.
 SUPPLEMENT_QSS = """
-QWizard, QWizardPage { background-color: #0B0B0B; }
-QListWidget::item:selected, QTreeView::item:selected { background-color: #8A7124; color: #F5F0E1; }
-QToolButton { background-color: #1C1C1C; color: #F5F0E1; border: 1px solid #2A2A2A; border-radius: 6px; padding: 4px 8px; }
-QToolButton:hover { border-color: #D4AF37; }
-QCalendarWidget QWidget { background-color: #141414; color: #F5F0E1; alternate-background-color: #1C1C1C; }
-QCalendarWidget QAbstractItemView:enabled { selection-background-color: #D4AF37; selection-color: #0B0B0B; }
-QLabel[role="pill"] { background-color: #1C1C1C; border: 1px solid #2A2A2A; border-radius: 10px; padding: 2px 8px; color: #B8B2A0; }
-QLabel[role="pill-gold"] { background-color: #1C1C1C; border: 1px solid #D4AF37; border-radius: 10px; padding: 2px 8px; color: #D4AF37; font-weight: 600; }
-QLabel[role="state"] { color: #D4AF37; font-size: 28px; font-weight: 700; letter-spacing: 1px; }
-QLabel[role="pairing-code"] { color: #D4AF37; font-size: 44px; font-weight: 700; letter-spacing: 8px; }
-QLabel[role="agent-line"] { color: #F5F0E1; font-size: 16px; background-color: #141414; border: 1px solid #D4AF37; border-radius: 10px; padding: 12px; }
-QTextEdit[invalid="true"], QPlainTextEdit[invalid="true"], QComboBox[invalid="true"], QDateTimeEdit[invalid="true"] { border-color: #E05252; }
+QLabel[role="pill"] { background-color: #F0EEE6; border: 1px solid #E6E2D6; border-radius: 10px; padding: 2px 8px; color: #6B665A; font-size: 11px; }
+QLabel[role="pill-gold"] { background-color: #FFFFFF; border: 1px solid #D4AF37; border-radius: 10px; padding: 2px 8px; color: #B8962E; font-weight: 600; font-size: 11px; }
+QLabel[role="state"] { color: #B8962E; font-size: 26px; font-weight: 800; letter-spacing: 1px; }
+QLabel[role="pairing-code"] { color: #B8962E; font-size: 44px; font-weight: 800; letter-spacing: 8px; }
+QLabel[role="agent-line"] { color: #1A1A1A; font-size: 16px; background-color: #FFFFFF; border: 2px solid #D4AF37; border-radius: 12px; padding: 12px; }
+QLabel[role="avatar"] { background-color: #D4AF37; color: #0B0B0B; border-radius: 28px; font-size: 20px; font-weight: 800; min-width: 56px; max-width: 56px; min-height: 56px; max-height: 56px; }
+QLabel[role="avatar-small"] { background-color: #D4AF37; color: #0B0B0B; border-radius: 16px; font-size: 12px; font-weight: 800; min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px; }
+QLabel[role="greeting"] { color: #1A1A1A; font-size: 24px; font-weight: 800; }
+QLabel[role="card-title"] { color: #1A1A1A; font-size: 14px; font-weight: 700; }
+QTextEdit[invalid="true"], QPlainTextEdit[invalid="true"], QComboBox[invalid="true"], QDateTimeEdit[invalid="true"] { border: 2px solid #C62828; }
 QFrame[role="danger-banner"] { background-color: #C62828; border-radius: 8px; }
 QFrame[role="danger-banner"] QLabel { color: #FFFFFF; font-weight: 700; background: transparent; }
+QFrame[role="card-dark"] QPushButton { background-color: #1C1C1C; color: #F5F0E1; border: 1px solid #2A2A2A; }
+QFrame[role="card-dark"] QPushButton[role="primary"] { background-color: #D4AF37; color: #0B0B0B; border: none; }
+QFrame[role="card-dark"] QLabel[role="caption"] { color: #B8B2A0; }
+QFrame[role="card-dark"] QLabel[role="success"] { color: #4CAF50; }
+QFrame[role="card-dark"] QLabel[role="danger"] { color: #E05252; }
+QFrame[role="card-dark"] QLabel[role="warning"] { color: #E6A23C; }
+QFrame#Header QLabel { background: transparent; }
+QFrame#Header QPushButton[role="danger"] { min-height: 30px; }
+QPushButton[role="chip"] { background-color: #FFFFFF; color: #6B665A; border: 1px solid #E6E2D6; border-radius: 14px; padding: 4px 12px; }
+QPushButton[role="chip"]:checked { background-color: #D4AF37; color: #0B0B0B; border-color: #D4AF37; font-weight: 700; }
+QSplashScreen { background-color: #0B0B0B; }
 """
 
 

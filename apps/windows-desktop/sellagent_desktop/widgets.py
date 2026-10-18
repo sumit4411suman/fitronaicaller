@@ -33,9 +33,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-GOLD, GOLD_LIGHT, GOLD_MUTED = "#D4AF37", "#E6C85A", "#8A7124"
-SURFACE, BORDER, TEXT, TEXT2 = "#141414", "#2A2A2A", "#F5F0E1", "#B8B2A0"
-SUCCESS, WARNING, DANGER = "#4CAF50", "#E6A23C", "#E05252"
+GOLD, GOLD_LIGHT, GOLD_MUTED, GOLD_DARK = "#D4AF37", "#E6C85A", "#8A7124", "#B8962E"
+DARK, DARK_SURFACE, DARK_BORDER, DARK_TEXT, DARK_TEXT2 = "#0B0B0B", "#141414", "#2A2A2A", "#F5F0E1", "#B8B2A0"
+SURFACE, BORDER, TEXT, TEXT2, CONTENT_BG = "#FFFFFF", "#E6E2D6", "#1A1A1A", "#6B665A", "#F7F6F2"
+SUCCESS, WARNING, DANGER, INFO = "#2E7D32", "#B8720A", "#C62828", "#2B5D9B"
+CHIP_KINDS = ("success", "warning", "danger", "info", "neutral")
 
 
 # ---------------------------------------------------------------------- formatting helpers
@@ -188,9 +190,11 @@ class Card(QFrame):
         self.body = QVBoxLayout(self)
         self.body.setContentsMargins(14, 12, 14, 12)
         self.body.setSpacing(8)
+        self.title_lbl: QLabel | None = None
         if title:
             t = QLabel(title)
-            t.setStyleSheet(f"color: {GOLD}; font-weight: 600; font-size: 14px; background: transparent;")
+            t.setProperty("role", "card-title")
+            self.title_lbl = t
             self.body.addWidget(t)
 
     def add(self, w: QWidget) -> QWidget:
@@ -205,7 +209,7 @@ class StatCard(Card):
         super().__init__(parent=parent)
         self.setMinimumWidth(150)
         self.value_lbl = QLabel("—")
-        self.value_lbl.setStyleSheet(f"color: {GOLD}; font-size: 26px; font-weight: 700; background: transparent;")
+        self.value_lbl.setProperty("role", "metric")
         self.value_lbl.setAccessibleName(f"{title} value")
         self.title_lbl = caption(title)
         self.body.addWidget(self.value_lbl)
@@ -350,6 +354,7 @@ class BarChart(QWidget):
         if not self._data:
             p.setPen(QColor(TEXT2))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No calls recorded in the last 7 days")
+            p.end()
             return
         max_v = max(v for _, v in self._data) or 1.0
         n = len(self._data)
@@ -362,7 +367,7 @@ class BarChart(QWidget):
             h = (v / max_v) * (rect.height() - 18)
             x = rect.left() + i * slot + (slot - bar_w) / 2
             y = rect.bottom() - h
-            p.fillRect(int(x), int(y), int(bar_w), int(h), QColor(GOLD if v else GOLD_MUTED))
+            p.fillRect(int(x), int(y), int(bar_w), int(h), QColor(GOLD if v else BORDER))
             p.setPen(QColor(TEXT))
             p.drawText(int(rect.left() + i * slot), int(y) - 16, int(slot), 14, Qt.AlignmentFlag.AlignCenter, f"{v:g}")
             p.setPen(QColor(TEXT2))
@@ -573,3 +578,96 @@ def countdown_label(expires_iso: str, label: QLabel, done_text: str = "expired")
     timer.start(1000)
     tick()
     return timer
+
+
+# ---------------------------------------------------------------------- chips, avatars, donut
+def chip(text: str, kind: str = "neutral") -> QLabel:
+    """Tinted status chip; ``kind`` is one of success/warning/danger/info/neutral (brand roles)."""
+    kind = kind if kind in CHIP_KINDS else "neutral"
+    lbl = QLabel(text)
+    lbl.setProperty("role", f"chip-{kind}")
+    lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    lbl.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+    lbl.setAccessibleName(text)
+    return lbl
+
+
+def set_chip(lbl: QLabel, text: str, kind: str) -> None:
+    lbl.setText(text)
+    set_role(lbl, f"chip-{kind if kind in CHIP_KINDS else 'neutral'}")
+
+
+STAGE_CHIP = {"new": "neutral", "contacted": "info", "interested": "success", "demo_scheduled": "success", "converted": "success", "not_interested": "warning", "do_not_call": "danger"}
+STATUS_CHIP = {"draft": "neutral", "authorized": "info", "active": "success", "paused": "warning", "completed": "neutral", "archived": "neutral",
+               "pending": "neutral", "blocked": "danger", "queued": "info", "dispatched": "info", "in_progress": "success", "failed": "danger", "cancelled": "neutral",
+               "approved": "success", "pending_review": "warning", "rejected": "danger", "superseded": "neutral", "expired": "neutral", "open": "info", "done": "success"}
+
+
+def initials(name: str | None) -> str:
+    parts = [w for w in (name or "").replace("-", " ").split() if w]
+    if not parts:
+        return "?"
+    return (parts[0][0] + (parts[1][0] if len(parts) > 1 else "")).upper()
+
+
+def avatar(name: str | None, small: bool = False) -> QLabel:
+    lbl = QLabel(initials(name))
+    lbl.setProperty("role", "avatar-small" if small else "avatar")
+    lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    lbl.setAccessibleName(f"Avatar {name or ''}")
+    return lbl
+
+
+class DonutChart(QWidget):
+    """Donut of real counts (label, value, colour). Shows ``empty_text`` when every value is zero."""
+
+    def __init__(self, parent: QWidget | None = None, empty_text: str = "no calls yet"):
+        super().__init__(parent)
+        self._data: list[tuple[str, float, str]] = []
+        self._center = ""
+        self.empty_text = empty_text
+        self.setMinimumSize(220, 190)
+        self.setAccessibleName("Connection rate donut chart")
+
+    def set_data(self, data: list[tuple[str, float, str]], center: str = "") -> None:
+        self._data, self._center = data, center
+        self.setAccessibleDescription("; ".join(f"{k}: {v:g}" for k, v, _ in data) or self.empty_text)
+        self.update()
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        from PySide6.QtCore import QRectF
+
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        total = sum(v for _, v, _ in self._data)
+        side = min(self.width() - 120, self.height() - 16)
+        rect = QRectF(8, 8, max(side, 40), max(side, 40))
+        if total <= 0:
+            p.setPen(QPen(QColor(BORDER), 18))
+            p.drawEllipse(rect.adjusted(9, 9, -9, -9))
+            p.setPen(QColor(TEXT2))
+            p.drawText(rect, Qt.AlignmentFlag.AlignCenter, self.empty_text)
+            p.end()
+            return
+        start = 90 * 16
+        for _, v, col in self._data:
+            span = -int(round(v / total * 360 * 16))
+            p.setPen(QPen(QColor(col), 18, Qt.PenStyle.SolidLine, Qt.PenCapStyle.FlatCap))
+            p.drawArc(rect.adjusted(9, 9, -9, -9), start, span)
+            start += span
+        p.setPen(QColor(TEXT))
+        f = QFont(p.font())
+        f.setPointSize(13)
+        f.setBold(True)
+        p.setFont(f)
+        p.drawText(rect, Qt.AlignmentFlag.AlignCenter, self._center)
+        f.setPointSize(8)
+        f.setBold(False)
+        p.setFont(f)
+        y = int(rect.top()) + 6
+        for label, v, col in self._data:
+            p.fillRect(int(rect.right()) + 14, y + 2, 10, 10, QColor(col))
+            p.setPen(QColor(TEXT))
+            p.drawText(int(rect.right()) + 30, y + 11, f"{label} {v:g}")
+            y += 18
+        p.end()

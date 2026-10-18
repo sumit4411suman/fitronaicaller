@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.widgets import Card, DataTable, EmptyState, FormDialog, KeyValueGrid, TextInputDialog, badge, button, caption, combo, confirm, fmt_dt, pretty_json, status_label
 
-STATUSES = ("pending", "approved", "rejected", "superseded")
+STATUSES = ("pending_review", "approved", "rejected", "superseded", "expired")
 
 
 class KnowledgeDialog(FormDialog):
@@ -165,8 +165,8 @@ class KnowledgeScreen(BaseScreen):
         self.body.setPlainText(d.get("body", ""))
         self.ack.setVisible(bool(flags))
         self.ack.setChecked(False)
-        self.approve_btn.setEnabled(d.get("status") == "pending")
-        self.reject_btn.setEnabled(d.get("status") == "pending")
+        self.approve_btn.setEnabled(d.get("status") in ("pending_review", "rejected"))
+        self.reject_btn.setEnabled(d.get("status") == "pending_review")
 
     def _sel(self) -> dict | None:
         d = self.table.selected_row()

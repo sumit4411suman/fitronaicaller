@@ -1,25 +1,27 @@
-"""Main window: sidebar navigation, stacked screens, persistent EMERGENCY STOP, status bar, live WebSocket routing."""
+"""Main window per the approved mockup: dark gold sidebar, white header (search, status chips, operator, EMERGENCY STOP),
+light content area with the eleven navigation groups. Every one of the registered screens stays reachable via
+``navigate(screen_key)``; groups with several screens show them as tabs."""
 
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, QStatusBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QScrollArea, QStackedWidget, QStatusBar, QTabWidget, QVBoxLayout, QWidget
 
 from sellagent_desktop import APP_NAME, APP_VERSION
 from sellagent_desktop.api_client import call_async
 from sellagent_desktop.context import AppContext
-from sellagent_desktop.screens import SCREEN_SPECS, load_screen_class
+from sellagent_desktop.screens import NAV_GROUPS, SCREEN_SPECS, group_for, load_screen_class
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.theme import logo_pixmap
-from sellagent_desktop.widgets import DangerBanner, badge, button
+from sellagent_desktop.widgets import DangerBanner, avatar, button, caption, chip, set_chip, set_role
 
 log = logging.getLogger("sellagent.desktop")
-NAV_SECTIONS = {"setup": "Start", "dashboard": "Work", "diagnostics": "AI & knowledge", "devices": "Devices & safety", "settings": "System"}
-TOAST_COLORS = {"info": "#B8B2A0", "success": "#4CAF50", "warning": "#E6A23C", "error": "#E05252"}
+TOAST_COLORS = {"info": "#6B665A", "success": "#2E7D32", "warning": "#B8720A", "error": "#C62828"}
 
 
 class MainWindow(QMainWindow):
@@ -30,9 +32,11 @@ class MainWindow(QMainWindow):
         ctx.notify = self.notify
         self.setWindowTitle(f"{APP_NAME} — FITRON sales calling")
         self.setMinimumSize(1180, 720)
-        self.resize(1400, 860)
+        self.resize(1440, 880)
         self.screens: dict[str, BaseScreen] = {}
-        self.nav_buttons: dict[str, QPushButton] = {}
+        self.nav_buttons: dict[str, QPushButton] = {}  # keyed by NAV group
+        self.group_pages: dict[str, QWidget] = {}
+        self.group_tabs: dict[str, QTabWidget] = {}
         self._build()
         self._wire_ws()
         self.status_timer = QTimer(self)
@@ -48,100 +52,40 @@ class MainWindow(QMainWindow):
         outer = QHBoxLayout(central)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
-        sidebar = QFrame()
-        sidebar.setObjectName("Sidebar")
-        sidebar.setFixedWidth(240)
-        sl = QVBoxLayout(sidebar)
-        sl.setContentsMargins(12, 16, 12, 12)
-        sl.setSpacing(6)
-        logo = QLabel()
-        logo.setPixmap(logo_pixmap(72))
-        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo.setAccessibleName("FITRON logo")
-        sl.addWidget(logo)
-        title = QLabel("SELL AGENT")
-        title.setObjectName("AppTitle")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sl.addWidget(title)
-        sub = QLabel("FITRON gym accounting")
-        sub.setProperty("role", "caption")
-        sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sl.addWidget(sub)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        navw = QWidget()
-        navw.setStyleSheet("background: transparent;")
-        nl = QVBoxLayout(navw)
-        nl.setContentsMargins(0, 0, 0, 0)
-        nl.setSpacing(2)
-        self.nav_group = QButtonGroup(self)
-        self.nav_group.setExclusive(True)
-        for i, (key, label, _m, _c) in enumerate(SCREEN_SPECS):
-            if key in NAV_SECTIONS:
-                sec = QLabel(NAV_SECTIONS[key].upper())
-                sec.setProperty("role", "caption")
-                sec.setStyleSheet("margin-top: 8px; letter-spacing: 1px;")
-                nl.addWidget(sec)
-            b = QPushButton(label)
-            b.setProperty("role", "nav")
-            b.setCheckable(True)
-            b.setAccessibleName(f"Go to {label}")
-            b.setObjectName(f"nav_{key}")
-            b.setCursor(Qt.CursorShape.PointingHandCursor)
-            b.clicked.connect(lambda _=False, k=key: self.navigate(k))
-            if i < 9:
-                b.setShortcut(QKeySequence(f"Ctrl+{i + 1}"))
-                b.setToolTip(f"Ctrl+{i + 1}")
-            self.nav_group.addButton(b)
-            self.nav_buttons[key] = b
-            nl.addWidget(b)
-        nl.addStretch(1)
-        scroll.setWidget(navw)
-        sl.addWidget(scroll, 1)
-        ver = QLabel(f"v{APP_VERSION}")
-        ver.setProperty("role", "caption")
-        ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sl.addWidget(ver)
-        outer.addWidget(sidebar)
-
+        outer.addWidget(self._build_sidebar())
         right = QWidget()
+        right.setObjectName("Content")
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(0)
-        top = QFrame()
-        top.setStyleSheet("background-color: #141414; border-bottom: 1px solid #2A2A2A;")
-        tl = QHBoxLayout(top)
-        tl.setContentsMargins(20, 8, 20, 8)
-        self.crumb = QLabel("")
-        self.crumb.setProperty("role", "caption")
-        tl.addWidget(self.crumb)
-        tl.addStretch(1)
-        self.toast_lbl = QLabel("")
-        self.toast_lbl.setWordWrap(False)
-        self.toast_lbl.setAccessibleName("Notification")
-        self.toast_lbl.setStyleSheet("background: transparent;")
-        tl.addWidget(self.toast_lbl, 2)
-        self.ws_badge = badge("live link: connecting", "pill")
-        self.ws_badge.setToolTip("Desktop WebSocket to the local backend (call events, device heartbeats, emergency stop fan-out)")
-        tl.addWidget(self.ws_badge)
-        self.stop_btn = button("EMERGENCY STOP", "danger", self.emergency_stop, tooltip="Cancels every pending/active call job and tells paired phones to stop (Ctrl+Shift+X)")
-        self.stop_btn.setObjectName("emergency_stop_btn")
-        self.stop_btn.setMinimumHeight(36)
-        tl.addWidget(self.stop_btn)
-        rl.addWidget(top)
-        self.stop_banner = DangerBanner("EMERGENCY STOP IS ACTIVE — no calls can be queued or dispatched. Clear it under Settings & privacy.")
+        rl.addWidget(self._build_header())
+        self.stop_banner = DangerBanner("EMERGENCY STOP IS ACTIVE — no calls can be queued or dispatched. Clear it under Settings › Privacy & calling settings.")
         self.stop_banner.setObjectName("emergency_banner")
         rl.addWidget(self.stop_banner)
         self.stack = QStackedWidget()
+        self.stack.setObjectName("Content")
         for key, label, module, cls in SCREEN_SPECS:
-            screen_cls = load_screen_class(module, cls)
-            screen = screen_cls(self.ctx)
+            screen = load_screen_class(module, cls)(self.ctx)
             screen.key, screen.title = key, label
             screen.title_lbl.setText(label)
             self.screens[key] = screen
-            self.stack.addWidget(screen)
+        for nav_key, _label, keys in NAV_GROUPS:
+            if len(keys) == 1:
+                page: QWidget = self.screens[keys[0]]
+            else:
+                page = QWidget()
+                page.setObjectName("Content")
+                pl = QVBoxLayout(page)
+                pl.setContentsMargins(12, 10, 12, 8)
+                tabs = QTabWidget()
+                tabs.setDocumentMode(True)
+                for k in keys:
+                    tabs.addTab(self.screens[k], self.screens[k].title)
+                tabs.currentChanged.connect(lambda idx, t=tabs: self._tab_changed(t, idx))
+                pl.addWidget(tabs)
+                self.group_tabs[nav_key] = tabs
+            self.group_pages[nav_key] = page
+            self.stack.addWidget(page)
         rl.addWidget(self.stack, 1)
         outer.addWidget(right, 1)
         self.setCentralWidget(central)
@@ -150,7 +94,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(sb)
         self.backend_lbl = QLabel("backend: …")
         self.backend_lbl.setAccessibleName("Backend status")
-        self.devices_lbl = QLabel("devices: …")
+        self.devices_lbl = QLabel("devices connected: …")
         self.devices_lbl.setAccessibleName("Connected device count")
         self.stop_lbl = QLabel("emergency stop: …")
         self.stop_lbl.setObjectName("status_emergency")
@@ -163,6 +107,119 @@ class MainWindow(QMainWindow):
         self.toast_timer.timeout.connect(lambda: self.toast_lbl.setText(""))
         QShortcut(QKeySequence("Ctrl+Shift+X"), self, activated=self.emergency_stop)
         QShortcut(QKeySequence("F5"), self, activated=self.refresh_current)
+        QShortcut(QKeySequence("Ctrl+K"), self, activated=lambda: (self.search.setFocus(), self.search.selectAll()))
+
+    def _build_sidebar(self) -> QFrame:
+        sidebar = QFrame()
+        sidebar.setObjectName("Sidebar")
+        sidebar.setFixedWidth(248)
+        sl = QVBoxLayout(sidebar)
+        sl.setContentsMargins(14, 18, 14, 14)
+        sl.setSpacing(6)
+        brand = QHBoxLayout()
+        logo = QLabel()
+        logo.setPixmap(logo_pixmap(44))
+        logo.setAccessibleName("FITRON logo")
+        brand.addWidget(logo)
+        words = QHBoxLayout()
+        words.setSpacing(6)
+        t1 = QLabel("SELL")
+        t1.setObjectName("AppTitle")
+        t2 = QLabel("AGENT")
+        t2.setObjectName("AppTitleAccent")
+        words.addWidget(t1)
+        words.addWidget(t2)
+        words.addStretch(1)
+        brand.addLayout(words, 1)
+        sl.addLayout(brand)
+        sub = caption("FITRON gym accounting · local AI sales calls")
+        sl.addWidget(sub)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        navw = QWidget()
+        nl = QVBoxLayout(navw)
+        nl.setContentsMargins(0, 8, 0, 0)
+        nl.setSpacing(3)
+        self.nav_group = QButtonGroup(self)
+        self.nav_group.setExclusive(True)
+        for i, (nav_key, label, keys) in enumerate(NAV_GROUPS):
+            b = QPushButton(label)
+            b.setProperty("role", "nav")
+            b.setCheckable(True)
+            b.setAccessibleName(f"Go to {label}")
+            b.setObjectName(f"nav_{nav_key}")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.clicked.connect(lambda _=False, k=keys[0]: self.navigate(k))
+            if i < 9:
+                b.setShortcut(QKeySequence(f"Ctrl+{i + 1}"))
+            b.setToolTip(", ".join(self.screens[k].title for k in keys) if hasattr(self, "screens") and self.screens else label)
+            self.nav_group.addButton(b)
+            self.nav_buttons[nav_key] = b
+            nl.addWidget(b)
+        nl.addStretch(1)
+        scroll.setWidget(navw)
+        sl.addWidget(scroll, 1)
+        # AI Engine status box (dark card)
+        self.ai_card = QFrame()
+        self.ai_card.setProperty("role", "card-dark")
+        al = QVBoxLayout(self.ai_card)
+        al.setContentsMargins(12, 10, 12, 10)
+        al.setSpacing(3)
+        t = QLabel("AI Engine")
+        t.setProperty("role", "gold")
+        al.addWidget(t)
+        self.ai_provider_lbl = QLabel("checking…")
+        self.ai_provider_lbl.setProperty("role", "caption")
+        self.ai_provider_lbl.setAccessibleName("AI provider status")
+        self.ai_cpu_lbl = caption("CPU: …")
+        self.ai_ram_lbl = caption("RAM: …")
+        self.ai_gpu_lbl = caption("No GPU (CPU mode)")
+        for w in (self.ai_provider_lbl, self.ai_cpu_lbl, self.ai_ram_lbl, self.ai_gpu_lbl):
+            al.addWidget(w)
+        sl.addWidget(self.ai_card)
+        ver = caption(f"v{APP_VERSION}")
+        ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sl.addWidget(ver)
+        return sidebar
+
+    def _build_header(self) -> QFrame:
+        top = QFrame()
+        top.setObjectName("Header")
+        tl = QHBoxLayout(top)
+        tl.setContentsMargins(20, 10, 20, 10)
+        tl.setSpacing(12)
+        self.search = QLineEdit()
+        self.search.setObjectName("Search")
+        self.search.setPlaceholderText("Search contacts, campaigns, or enter a number...   Ctrl+K")
+        self.search.setAccessibleName("Global search")
+        self.search.setClearButtonEnabled(True)
+        self.search.setMinimumWidth(320)
+        self.search.returnPressed.connect(self.global_search)
+        tl.addWidget(self.search, 3)
+        self.toast_lbl = QLabel("")
+        self.toast_lbl.setAccessibleName("Notification")
+        tl.addWidget(self.toast_lbl, 2)
+        self.ai_chip = chip("Local AI: checking", "neutral")
+        self.ai_chip.setObjectName("chip_ai")
+        self.backend_chip = chip("Backend: starting", "neutral")
+        self.backend_chip.setObjectName("chip_backend")
+        self.device_chip = chip("Phone: not paired", "neutral")
+        self.device_chip.setObjectName("chip_device")
+        for c in (self.ai_chip, self.backend_chip, self.device_chip):
+            tl.addWidget(c)
+        self.op_avatar = avatar("Operator", small=True)
+        self.op_name = QLabel("Operator")
+        self.op_name.setObjectName("operator_name")
+        self.op_name.setAccessibleName("Operator name")
+        self.op_name.setStyleSheet("font-weight: 600;")
+        tl.addWidget(self.op_avatar)
+        tl.addWidget(self.op_name)
+        self.stop_btn = button("EMERGENCY STOP", "danger", self.emergency_stop, tooltip="Cancels every pending/active call job and tells paired phones to stop (Ctrl+Shift+X)")
+        self.stop_btn.setObjectName("emergency_stop_btn")
+        tl.addWidget(self.stop_btn)
+        return top
 
     # ------------------------------------------------------------------ navigation
     def navigate(self, key: str, **context: Any) -> None:
@@ -172,60 +229,114 @@ class MainWindow(QMainWindow):
             return
         if context:
             screen.set_context(**context)
-        self.stack.setCurrentWidget(screen)
-        self.nav_buttons[key].setChecked(True)
-        self.crumb.setText(f"{NAV_SECTIONS.get(self._section_of(key), '')} › {screen.title}")
+        nav_key = group_for(key)
+        self.stack.setCurrentWidget(self.group_pages[nav_key])
+        self.nav_buttons[nav_key].setChecked(True)
+        tabs = self.group_tabs.get(nav_key)
+        if tabs is not None:
+            tabs.blockSignals(True)
+            tabs.setCurrentWidget(screen)
+            tabs.blockSignals(False)
         screen.refresh()
 
-    def _section_of(self, key: str) -> str:
-        current = "setup"
-        for k, *_ in SCREEN_SPECS:
-            if k in NAV_SECTIONS:
-                current = k
-            if k == key:
-                return current
-        return current
+    def _tab_changed(self, tabs: QTabWidget, idx: int) -> None:
+        w = tabs.widget(idx)
+        if isinstance(w, BaseScreen):
+            w.refresh()
+
+    def nav_button_for(self, screen_key: str) -> QPushButton:
+        return self.nav_buttons[group_for(screen_key)]
 
     def current_screen(self) -> BaseScreen:
-        return self.stack.currentWidget()  # type: ignore[return-value]
+        page = self.stack.currentWidget()
+        if isinstance(page, BaseScreen):
+            return page
+        for tabs in self.group_tabs.values():
+            if tabs.isAncestorOf(page) or tabs.parentWidget() is page:
+                return tabs.currentWidget()  # type: ignore[return-value]
+        return self.screens["dashboard"]
 
     def refresh_current(self) -> None:
         self.current_screen().refresh()
+
+    def global_search(self) -> None:
+        q = self.search.text().strip()
+        if not q:
+            return
+        self.navigate("contacts", query=q)
 
     # ------------------------------------------------------------------ notifications & status
     def notify(self, text: str, level: str = "info") -> None:
         color = TOAST_COLORS.get(level, TOAST_COLORS["info"])
         self.toast_lbl.setStyleSheet(f"color: {color}; background: transparent; font-weight: {'600' if level in ('error', 'warning') else '400'};")
-        self.toast_lbl.setText(text[:220])
+        self.toast_lbl.setText(text[:160])
         self.toast_lbl.setToolTip(text)
         self.statusBar().showMessage(text, 8000)
         self.toast_timer.start(9000 if level in ("error", "warning") else 5000)
         (log.error if level == "error" else log.info)("%s", text)
 
     def poll_status(self) -> None:
-        def fetch() -> tuple:
-            return self.ctx.api.get("/health/ping"), self.ctx.api.get("/settings"), self.ctx.api.get("/devices/connected")
+        api = self.ctx.api
 
-        def done(res: tuple) -> None:
-            ping, settings, conn = res
-            vals = settings.get("values", {})
-            self.ctx.settings_cache.update(vals)
-            self.backend_lbl.setText(f"backend: {ping.get('app')} {ping.get('version')} ok")
-            self.backend_lbl.setStyleSheet("padding: 0 10px; color: #4CAF50;")
-            self.devices_lbl.setText(f"devices connected: {len(conn.get('connected', []))}")
-            self.set_emergency_state(bool(vals.get("calling.emergency_stop_active")))
+        def fetch() -> dict:
+            out: dict[str, Any] = {"ping": api.get("/health/ping"), "settings": api.get("/settings"), "connected": api.get("/devices/connected"), "devices": api.get("/devices")}
+            try:
+                out["ai"] = api.get("/ai/status")
+            except Exception as exc:  # noqa: BLE001 - AI status must never break the status poll
+                out["ai"] = {"available": False, "message": str(exc), "provider": "?"}
+            out["sys"] = _system_stats()
+            return out
 
-        def failed(exc: Exception) -> None:
-            self.backend_lbl.setText(f"backend: UNREACHABLE ({exc})")
-            self.backend_lbl.setStyleSheet("padding: 0 10px; color: #E05252;")
+        call_async(fetch, self._status_done, self._status_failed)
 
-        call_async(fetch, done, failed)
+    def _status_done(self, res: dict) -> None:
+        ping, settings, conn, devices, ai, sysinfo = res["ping"], res["settings"], res["connected"], res["devices"], res["ai"], res["sys"]
+        vals = settings.get("values", {})
+        self.ctx.settings_cache.update(vals)
+        self.ctx.ai_status = ai
+        self.ctx.devices = devices
+        self.ctx.connected_devices = conn.get("connected", [])
+        self.backend_lbl.setText(f"backend: {ping.get('app')} {ping.get('version')} ok")
+        self.backend_lbl.setStyleSheet("padding: 0 10px; color: #2E7D32;")
+        set_chip(self.backend_chip, "Backend: Running", "success")
+        set_chip(self.ai_chip, "Local AI: Online" if ai.get("available") else "Local AI: Offline", "success" if ai.get("available") else "danger")
+        self.ai_chip.setToolTip(f"{ai.get('provider')} — {ai.get('message') or 'ok'} · model {ai.get('configured_model')} ({'installed' if ai.get('configured_model_installed') else 'not installed'})")
+        self._device_chip()
+        self.devices_lbl.setText(f"devices connected: {len(self.ctx.connected_devices)}")
+        name = str(vals.get("general.operator_name") or "Operator")
+        self.op_name.setText(name)
+        self.op_avatar.setText(name[:2].upper())
+        disp = str(vals.get("general.app_display_name") or APP_NAME)
+        self.setWindowTitle(f"{disp} — FITRON sales calling")
+        self.set_emergency_state(bool(vals.get("calling.emergency_stop_active")))
+        self.ai_provider_lbl.setText(f"{ai.get('provider', '?')}: {'Online' if ai.get('available') else 'Offline'} · {ai.get('configured_model') or ''}")
+        set_role(self.ai_provider_lbl, "success" if ai.get("available") else "danger")
+        self.ai_cpu_lbl.setText(sysinfo.get("cpu", "CPU: n/a"))
+        self.ai_ram_lbl.setText(sysinfo.get("ram", "RAM: n/a"))
+        self.ai_gpu_lbl.setText("No GPU (CPU mode)")
+
+    def _device_chip(self) -> None:
+        approved = [d for d in self.ctx.devices if d.get("status") == "approved"]
+        if not approved:
+            set_chip(self.device_chip, "Phone: not paired", "neutral")
+            self.device_chip.setToolTip("Pair the Android companion under Devices")
+            return
+        approved.sort(key=lambda d: d.get("last_seen_at") or "", reverse=True)
+        dev = approved[0]
+        online = dev["id"] in self.ctx.connected_devices
+        set_chip(self.device_chip, f"{dev.get('model') or dev.get('name')}: {'Connected' if online else 'Not connected'}", "success" if online else "warning")
+        self.device_chip.setToolTip(f"{dev.get('name')} · Android {dev.get('android_version')} · app {dev.get('app_version')}")
+
+    def _status_failed(self, exc: Exception) -> None:
+        self.backend_lbl.setText(f"backend: UNREACHABLE ({exc})")
+        self.backend_lbl.setStyleSheet("padding: 0 10px; color: #C62828;")
+        set_chip(self.backend_chip, "Backend: Unreachable", "danger")
 
     def set_emergency_state(self, active: bool) -> None:
         self.ctx.emergency_stop_active = active
         self.stop_banner.setVisible(active)
         self.stop_lbl.setText("emergency stop: ACTIVE" if active else "emergency stop: clear")
-        self.stop_lbl.setStyleSheet("padding: 0 10px; color: #E05252; font-weight: 700;" if active else "padding: 0 10px; color: #B8B2A0;")
+        self.stop_lbl.setStyleSheet("padding: 0 10px; color: #C62828; font-weight: 700;" if active else "padding: 0 10px; color: #6B665A;")
         self.stop_btn.setText("EMERGENCY STOP (active)" if active else "EMERGENCY STOP")
 
     # ------------------------------------------------------------------ emergency stop
@@ -238,8 +349,7 @@ class MainWindow(QMainWindow):
             self.ctx.ws.send_emergency_stop(reason)  # lowest latency path; the REST call below is authoritative
 
         def done(res: dict) -> None:
-            n = len(res.get("cancelled_jobs", []))
-            self.notify(f"EMERGENCY STOP active — {n} job(s) cancelled", "warning")
+            self.notify(f"EMERGENCY STOP active — {len(res.get('cancelled_jobs', []))} job(s) cancelled", "warning")
             self.refresh_current()
 
         call_async(lambda: self.ctx.api.post("/call-jobs/emergency-stop", {"reason": reason, "activate": True}), done, lambda e: self.notify(f"Emergency stop request failed: {e}", "error"))
@@ -248,32 +358,32 @@ class MainWindow(QMainWindow):
     def _wire_ws(self) -> None:
         ws = self.ctx.ws
         if ws is None:
-            self.ws_badge.setText("live link: off")
             return
         ws.event.connect(self.on_ws_event)
         ws.connected_changed.connect(self._ws_state)
-        ws.status_text.connect(lambda t: self.ws_badge.setToolTip(f"WebSocket: {t}"))
         self._ws_state(ws.is_connected)
 
     def _ws_state(self, ok: bool) -> None:
-        self.ws_badge.setText("live link: connected" if ok else "live link: reconnecting")
-        self.ws_badge.setProperty("role", "pill-gold" if ok else "pill")
-        self.ws_badge.style().unpolish(self.ws_badge)
-        self.ws_badge.style().polish(self.ws_badge)
+        self.backend_chip.setToolTip("Live WebSocket link: " + ("connected" if ok else "reconnecting"))
 
     def on_ws_event(self, env: dict) -> None:
         t = env.get("type")
+        p = env.get("payload") or {}
         if t == "safety.emergency_stop":
             self.set_emergency_state(True)
-            self.notify(f"Emergency stop broadcast received ({(env.get('payload') or {}).get('issued_by')})", "warning")
-        elif t == "ack" and (env.get("payload") or {}).get("message_id") == "emergency_stop_cleared":
+            self.notify(f"Emergency stop broadcast received ({p.get('issued_by')})", "warning")
+        elif t == "ack" and p.get("message_id") == "emergency_stop_cleared":
             self.set_emergency_state(False)
             self.notify("Emergency stop cleared", "success")
         elif t == "error":
-            p = env.get("payload") or {}
             self.notify(f"Device event: {p.get('code')} — {p.get('message')}", "warning")
-        elif t in ("session.heartbeat", "session.capabilities"):
-            call_async(lambda: self.ctx.api.get("/devices/connected"), lambda c: self.devices_lbl.setText(f"devices connected: {len(c.get('connected', []))}"))
+            if p.get("code") == "device_disconnected":
+                self.poll_status()
+        elif t == "session.heartbeat":
+            self.ctx.last_heartbeat = {**p, "received_at": time.time()}
+            self.poll_status()
+        elif t == "session.capabilities":
+            self.poll_status()
         for s in self.screens.values():
             try:
                 s.on_ws_event(env)
@@ -283,3 +393,15 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:  # noqa: N802
         self.status_timer.stop()
         super().closeEvent(event)
+
+
+def _system_stats() -> dict[str, str]:
+    try:
+        import psutil
+
+        vm = psutil.virtual_memory()
+        return {"cpu": f"CPU: {psutil.cpu_percent(interval=None):.0f}%", "ram": f"RAM: {vm.used / 1024**3:.1f} / {vm.total / 1024**3:.1f} GB"}
+    except ImportError:
+        return {"cpu": "CPU: n/a (psutil not installed)", "ram": "RAM: n/a (psutil not installed)"}
+    except Exception as exc:  # noqa: BLE001
+        return {"cpu": f"CPU: n/a ({exc.__class__.__name__})", "ram": "RAM: n/a"}

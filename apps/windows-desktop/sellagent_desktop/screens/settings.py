@@ -9,12 +9,13 @@ from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QScrollArea, QS
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.widgets import Card, button, caption, confirm, mark_invalid, pretty_json, status_label
 
-GROUP_TITLES = {"general": "General", "privacy": "Privacy", "calling": "Calling policy & safety", "network": "Network", "ai": "Local AI", "backup": "Backup", "release_gate": "Release gate (read-only, set by audio evidence)"}
+GROUP_TITLES = {"reports": "Daily reports", "general": "General", "privacy": "Privacy", "calling": "Calling policy & safety", "network": "Network", "ai": "Local AI", "backup": "Backup", "release_gate": "Release gate (read-only, set by audio evidence)"}
 WARN_ON_ENABLE = {
     "privacy.allow_external_network": "Allowing external network lets the backend download models (Ollama/Whisper) from the internet. No contact data is ever sent, but the PC will make outbound connections. Enable?",
     "network.lan_pairing_enabled": "This opens the HTTPS/WSS pairing listener on your Wi-Fi (default port 8766). Only device endpoints are exposed, but anyone on the network can see the port. Enable?",
     "privacy.record_calls": "Recording calls has legal requirements (disclosure/consent) in India. The current routes cannot capture call audio anyway. Enable the flag?",
     "privacy.telemetry": "Telemetry is off by default; this build sends nothing. Enable the flag?",
+    "privacy.allow_live_transcription": "Live transcription sends PC-microphone audio to the local Whisper model during calls. The operator must read the disclosure and record the prospect's consent on every call; audio is never stored. Enable?",
 }
 
 
@@ -32,6 +33,7 @@ class SettingsScreen(BaseScreen):
         bar.addWidget(button("Reload", None, self.refresh))
         bar.addWidget(button("Run retention now", None, self.run_retention, tooltip="Deletes transcripts older than privacy.transcript_retention_days"))
         self.clear_stop_btn = button("Clear emergency stop", "danger", self.clear_stop)
+        self.clear_stop_btn.setProperty("perm", "calls:write")
         bar.addWidget(self.clear_stop_btn)
         bar.addStretch(1)
         self.root.addLayout(bar)
@@ -103,7 +105,7 @@ class SettingsScreen(BaseScreen):
             w.setValue(int(value or 0))
         else:
             w = QLineEdit("" if value is None else str(value))
-            if key.endswith(("quiet_hours_start", "quiet_hours_end")):
+            if key.endswith(("quiet_hours_start", "quiet_hours_end")) or key == "reports.daily_at":
                 w.setPlaceholderText("HH:MM")
                 w.setToolTip("24-hour HH:MM in general.timezone")
             if key == "ai.llm_provider":
@@ -135,7 +137,7 @@ class SettingsScreen(BaseScreen):
             if k in self.read_only or not w.isEnabled():
                 continue
             v = self._current(k)
-            if k.endswith(("quiet_hours_start", "quiet_hours_end")):
+            if k.endswith(("quiet_hours_start", "quiet_hours_end")) or k == "reports.daily_at":
                 parts = str(v).split(":")
                 ok = len(parts) == 2 and all(p.isdigit() for p in parts) and 0 <= int(parts[0]) < 24 and 0 <= int(parts[1]) < 60
                 mark_invalid(w, not ok)

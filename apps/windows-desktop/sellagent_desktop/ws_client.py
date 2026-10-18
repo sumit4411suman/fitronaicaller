@@ -41,6 +41,13 @@ class WsClient(QThread):
             loop.call_soon_threadsafe(self._wake)
         self.wait(5000)
 
+    def set_url(self, url: str) -> None:
+        """Switch credentials (e.g. after 'Switch user'): the current socket is closed and the loop reconnects."""
+        self.url = url
+        loop = self._loop
+        if loop is not None and loop.is_running():
+            loop.call_soon_threadsafe(self._wake)
+
     def send_json(self, payload: dict) -> bool:
         loop, ws = self._loop, self._ws
         if loop is None or ws is None or not self.is_connected:
@@ -88,6 +95,7 @@ class WsClient(QThread):
         while not self._stop.is_set():
             try:
                 self.status_text.emit("connecting")
+                self._last_url = self.url
                 async with connect(self.url, max_size=256_000, ping_interval=20, ping_timeout=20, open_timeout=5) as ws:
                     self._ws = ws
                     self.is_connected = True
@@ -113,5 +121,6 @@ class WsClient(QThread):
                 self._ws = None
             if self._stop.is_set():
                 break
-            await asyncio.sleep(delay)
+            await asyncio.sleep(0.2 if self.url != getattr(self, '_last_url', self.url) else delay)
+            self._last_url = self.url
             delay = min(delay * 2, 15.0)

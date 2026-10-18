@@ -11,7 +11,7 @@ PAGE = 100
 
 
 class CallDetailDialog(QDialog):
-    def __init__(self, parent: QWidget | None, d: dict):
+    def __init__(self, parent: QWidget | None, d: dict, summary: dict | None = None):
         super().__init__(parent)
         c = d["call"]
         self.setWindowTitle(f"Call {c['id'][:8]} — {(d.get('contact') or {}).get('business_name', '')}")
@@ -21,6 +21,12 @@ class CallDetailDialog(QDialog):
         grid.set_rows([(k, fmt_dt(c.get(k), True) if k.endswith("_at") else c.get(k)) for k in ("id", "conversation_state", "outcome", "outcome_detail", "language", "started_at", "connected_at", "ended_at", "duration_seconds", "audio_route", "recorded")] + [("job", f"{(d.get('job') or {}).get('status')} · {(d.get('job') or {}).get('route')} · {(d.get('job') or {}).get('mode')}")])
         lay.addWidget(grid)
         tabs = QTabWidget()
+        if summary is not None:
+            from sellagent_desktop.screens.live_call import SummaryCard
+
+            sc = SummaryCard()
+            sc.set_summary(summary)
+            tabs.addTab(sc, "Summary")
         tr = QListWidget()
         for t in d.get("transcript", []):
             tr.addItem(f"#{t['seq']} {t['speaker']} ({t.get('source')}, {t.get('language') or '-'}): {t['text']}" + (f"  refs={t['knowledge_refs']}" if t.get("knowledge_refs") else ""))
@@ -115,7 +121,7 @@ class CallHistoryScreen(BaseScreen):
         self.clear_btn.setVisible(bool(self.contact_filter))
         if self.open_call_id:
             cid, self.open_call_id = self.open_call_id, None
-            self.run(lambda: self.api.get(f"/calls/{cid}"), lambda d: CallDetailDialog(self, d).exec())
+            self.run(lambda: (self.api.get(f"/calls/{cid}"), self.api.get(f"/calls/{cid}/summary")), lambda res: self._detail(*res))
 
     def _with_sel(self, fn) -> None:
         row = self.table.selected_row()
@@ -125,4 +131,8 @@ class CallHistoryScreen(BaseScreen):
         fn(row)
 
     def open_detail(self) -> None:
-        self._with_sel(lambda r: self.run(lambda: self.api.get(f"/calls/{r['id']}"), lambda d: CallDetailDialog(self, d).exec()))
+        self._with_sel(lambda r: self.run(lambda: (self.api.get(f"/calls/{r['id']}"), self.api.get(f"/calls/{r['id']}/summary")), lambda res: self._detail(*res)))
+
+    def _detail(self, d: dict, summary: dict) -> None:
+        self.last_dialog = CallDetailDialog(self, d, summary)
+        self.last_dialog.exec()

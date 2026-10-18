@@ -1,5 +1,5 @@
 """Screen 3: dashboard per the approved mockup. Every number is read from the backend; nothing is invented.
-Week-over-week deltas are intentionally omitted because the API does not provide last week's figures."""
+Deltas come from /reports/dashboard.comparisons (current vs previous period); none is shown when both are zero."""
 
 from __future__ import annotations
 
@@ -13,6 +13,21 @@ from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.widgets import BORDER, DANGER, INFO, SUCCESS, WARNING, BarChart, Card, DataTable, DonutChart, EmptyState, KeyValueGrid, StatCard, badge, button, caption, chip, fmt_dt, set_chip, STATUS_CHIP
 
 NOT_CONNECTED = {"none", "no_answer", "busy", "technical_failure", "cancelled"}
+
+
+def delta_text(comp: dict | None, period: str = "last week") -> tuple[str, str]:
+    """Real comparison text: '+12% from last week', 'new this week', or '' when both values are 0."""
+    if not comp:
+        return "", "neutral"
+    cur, prev = int(comp.get("current") or 0), int(comp.get("previous") or 0)
+    if cur == 0 and prev == 0:
+        return "", "neutral"
+    if prev == 0:
+        return "new", "success"
+    pct = round((cur - prev) * 100 / prev)
+    if pct == 0:
+        return f"same as {period}", "neutral"
+    return f"{'+' if pct > 0 else ''}{pct}% from {period}", ("success" if pct > 0 else "danger")
 
 
 def _greeting() -> str:
@@ -54,8 +69,14 @@ class DashboardScreen(BaseScreen):
 
         grid = QGridLayout()
         self.cards = {}
+        self.deltas: dict[str, QLabel] = {}
         for i, (k, t) in enumerate([("contacts_total", "Total Contacts"), ("calls_today", "Called Today"), ("interested", "Interested"), ("converted", "Conversions")]):
             c = StatCard(t)
+            d = chip("", "neutral")
+            d.setObjectName(f"delta_{k}")
+            d.setVisible(False)
+            c.body.addWidget(d)
+            self.deltas[k] = d
             self.cards[k] = c
             grid.addWidget(c, 0, i)
         self.root.addLayout(grid)
@@ -86,6 +107,20 @@ class DashboardScreen(BaseScreen):
             ai.add(w)
         self.ai_detail = caption("")
         ai.add(self.ai_detail)
+        senti = QLabel("Prospect sentiment (7 days)")
+        senti.setProperty("role", "card-title")
+        ai.add(senti)
+        sr = QHBoxLayout()
+        self.senti_chips: dict[str, QLabel] = {}
+        for k, kind in (("positive", "success"), ("neutral", "neutral"), ("negative", "danger"), ("unknown", "neutral")):
+            c = chip(f"{k} 0", kind)
+            c.setObjectName(f"sentiment_{k}")
+            self.senti_chips[k] = c
+            sr.addWidget(c)
+        sr.addStretch(1)
+        srw = QWidget()
+        srw.setLayout(sr)
+        ai.add(srw)
         row2.addWidget(ai, 2)
         self.root.addLayout(row2)
 
@@ -172,6 +207,17 @@ class DashboardScreen(BaseScreen):
         self.cards["calls_today"].set_value(d.get("calls_today"))
         self.cards["interested"].set_value(int(stages.get("interested", 0)))
         self.cards["converted"].set_value(int(stages.get("converted", 0)))
+        comps = d.get("comparisons") or {}
+        for k, (ck, period) in {"contacts_total": ("contacts_added_week_vs_previous", "last week"), "calls_today": ("calls_today_vs_yesterday", "yesterday"), "interested": ("interested_week_vs_previous", "last week"), "converted": ("conversions_week_vs_previous", "last week")}.items():
+            text, kind = delta_text(comps.get(ck), period)
+            if k == "contacts_total" and text == "new":
+                text = f"+{int((comps.get(ck) or {}).get('current') or 0)} added this week"
+            set_chip(self.deltas[k], text, kind)
+            self.deltas[k].setVisible(bool(text))
+            self.deltas[k].setToolTip(f"current {(comps.get(ck) or {}).get('current')} vs previous {(comps.get(ck) or {}).get('previous')} ({ck})")
+        sw = d.get("sentiment_week") or {}
+        for k, c in self.senti_chips.items():
+            c.setText(f"{k} {int(sw.get(k, 0))}")
         self.chart.set_data([(x.get("date", ""), float(x.get("calls", 0))) for x in d.get("calls_daily", [])])
         outcomes = d.get("outcomes_week") or {}
         week = int(d.get("calls_week") or 0)

@@ -324,6 +324,15 @@ class DataTable(QTableWidget):
         idx = items[0].data(Qt.ItemDataRole.UserRole)
         return self.rows[idx] if idx is not None and idx < len(self.rows) else None
 
+    def select_data_row(self, index: int) -> bool:
+        """Select the visual row showing ``self.rows[index]`` (rows may be re-ordered by column sorting)."""
+        for r in range(self.rowCount()):
+            it = self.item(r, 0)
+            if it is not None and it.data(Qt.ItemDataRole.UserRole) == index:
+                self.selectRow(r)
+                return True
+        return False
+
     def select_first(self) -> None:
         if self.rowCount():
             self.selectRow(0)

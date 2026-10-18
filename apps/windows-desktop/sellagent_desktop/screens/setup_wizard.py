@@ -63,6 +63,7 @@ class _SystemPage(QWizardPage):
         rows = [
             ("Backend", f"{h.get('app')} {h.get('version')} (protocol {h.get('protocol_version')})"),
             ("Database", f"revision {h.get('database', {}).get('revision')} — {'up to date' if h.get('database', {}).get('up_to_date') else 'MIGRATION NEEDED'}"),
+            ("Database encryption", "encrypted (AES-256, SQLCipher)" if h.get("database", {}).get("encrypted") else f"NOT encrypted — {h.get('database', {}).get('encryption')}"),
             ("Free disk", fmt_bytes(disk.get("free"))),
             ("Total RAM", fmt_bytes(ram) if ram else "unknown (psutil not installed)"),
             ("Secret protection", h.get("secret_protection")),

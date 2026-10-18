@@ -168,7 +168,7 @@ def test_audio_test_manual_record_and_gate_stays_closed(window, backend):
     assert "GATE CLOSED" in a.gate_lbl.text()
     row = next(r for r in a.table.rows if r["step"] == "remote_speech_capture")
     assert row["latest"]["kind"] == "simulated"
-    a.table.selectRow(a.table.rows.index(row))
+    a.table.select_data_row(a.table.rows.index(row))
     assert not a.confirm_btn.isEnabled()  # simulated rows can never be confirmed
 
 

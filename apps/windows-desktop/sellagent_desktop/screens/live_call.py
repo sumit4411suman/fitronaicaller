@@ -6,13 +6,86 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QSplitter, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QSplitter, QTabWidget, QVBoxLayout, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import Card, DangerBanner, FormDialog, TextInputDialog, avatar, badge, button, caption, chip, combo, confirm, datetime_edit, fmt_dt, parse_dt, pretty_json, set_chip, status_label
+from sellagent_desktop.transcription import TranscriptionThread, microphone_frames
+from sellagent_desktop.widgets import DANGER, SUCCESS, TEXT2, Card, DangerBanner, KeyValueGrid as _KVG, FormDialog, TextInputDialog, avatar, badge, button, caption, chip, combo, confirm, datetime_edit, fmt_dt, parse_dt, pretty_json, set_chip, status_label
 
 LIVE_STATES = {"connected", "greeting", "permission_to_continue", "needs_discovery", "product_explanation", "objection_handling", "demo_invitation", "human_handoff", "followup_scheduling"}
 PRE_STATES = {"dial_request", "dialing", "ringing"}
+SENTI_KIND = {"positive": "success", "neutral": "neutral", "negative": "danger"}
+SENTI_COLOR = {"positive": SUCCESS, "negative": DANGER, "neutral": TEXT2}
+
+
+class SummaryCard(Card):
+    """Call Summary (mockup screen 16): deterministic, built by the backend from transcript + outcome."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__("Call Summary", gold=True, parent=parent)
+        self.setObjectName("call_summary")
+        self.grid = _KVG()
+        self.add(self.grid)
+        self.points = QListWidget()
+        self.points.setMaximumHeight(110)
+        self.add(self.points)
+        self.src = caption("")
+        self.add(self.src)
+
+    def set_summary(self, sm: dict) -> None:
+        nxt = sm.get("next_action") or {}
+        secs = sm.get("duration_seconds")
+        self.grid.set_rows([
+            ("Duration", f"{int(secs) // 60:02d}:{int(secs) % 60:02d}" if secs is not None else "—"),
+            ("Result", (sm.get("result") or "not recorded") + (f" — {sm['result_detail']}" if sm.get("result_detail") else "")),
+            ("Sentiment", sm.get("sentiment") or "unknown (no prospect lines)"),
+            ("Next action", f"{nxt.get('kind')} on {fmt_dt(nxt.get('due_at'))} ({nxt.get('status')})" if nxt else "none scheduled"),
+            ("Knowledge used", ", ".join(sm.get("knowledge_used") or []) or "none"),
+            ("Turns", f"{(sm.get('turns') or {}).get('prospect', 0)} prospect / {(sm.get('turns') or {}).get('agent', 0)} agent"),
+        ])
+        self.points.clear()
+        for k in sm.get("key_points") or []:
+            self.points.addItem("• " + k)
+        for n in sm.get("notes") or []:
+            self.points.addItem("Note: " + n)
+        if self.points.count() == 0:
+            self.points.addItem("No key points detected in the transcript")
+        self.src.setText(f"source: {sm.get('source', 'backend')}")
+
+
+class ConsentDialog(QDialog):
+    """Live transcription consent: the operator must read the disclosure to the prospect and tick both boxes."""
+
+    def __init__(self, parent: QWidget | None, disclosure: str):
+        super().__init__(parent)
+        self.setWindowTitle("Live transcription consent")
+        self.setMinimumWidth(460)
+        lay = QVBoxLayout(self)
+        lay.addWidget(caption("Read this to the prospect before starting live transcription:"))
+        d = QLabel(f"“{disclosure}”")
+        d.setWordWrap(True)
+        d.setProperty("role", "agent-line")
+        lay.addWidget(d)
+        self.read_box = QCheckBox("I read the disclosure to the prospect")
+        self.read_box.setObjectName("consent_read")
+        self.agree_box = QCheckBox("The prospect agreed to live transcription")
+        self.agree_box.setObjectName("consent_agreed")
+        lay.addWidget(self.read_box)
+        lay.addWidget(self.agree_box)
+        lay.addWidget(caption("Audio is processed in memory and not stored; only the text lines are saved to the transcript."))
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.ok = bb.button(QDialogButtonBox.StandardButton.Ok)
+        self.ok.setText("Record consent")
+        self.ok.setProperty("role", "primary")
+        self.ok.setEnabled(False)
+        for b in (self.read_box, self.agree_box):
+            b.toggled.connect(lambda _=False: self.ok.setEnabled(self.read_box.isChecked() and self.agree_box.isChecked()))
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+
 STATE_KIND = {"dial_request": "info", "dialing": "info", "ringing": "info", "connected": "success", "completed": "neutral", "no_answer": "warning", "busy": "warning", "technical_failure": "danger", "cancelled": "neutral", "opted_out": "danger"}
 
 
@@ -90,10 +163,12 @@ class LiveCallScreen(BaseScreen):
         self.state_lbl.setAccessibleName("Conversation state")
         self.state_lbl.setObjectName("state_chip")
         self.mode_chip = chip("Human-assisted: operator speaks", "info")
+        self.senti_chip = chip("sentiment: —", "neutral")
+        self.senti_chip.setObjectName("call_sentiment_chip")
         self.timer_lbl = QLabel("00:00")
         self.timer_lbl.setProperty("role", "state")
         self.timer_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
-        for w in (self.state_lbl, self.mode_chip):
+        for w in (self.state_lbl, self.mode_chip, self.senti_chip):
             sc.addWidget(w, 0, Qt.AlignmentFlag.AlignRight)
         sc.addWidget(self.timer_lbl)
         head.addLayout(sc)
@@ -158,8 +233,36 @@ class LiveCallScreen(BaseScreen):
         cw.setLayout(ctl)
         card.add(cw)
         cl.addWidget(card)
+        tc = Card("Live transcription (PC microphone) - audio is not stored")
+        tc.setObjectName("live_transcription_card")
+        tr_row = QHBoxLayout()
+        self.tx_btn = button("Start transcription", None, self.toggle_transcription, tooltip="Off by default; needs privacy.allow_live_transcription and the prospect's consent")
+        self.tx_btn.setObjectName("transcription_btn")
+        self.tx_btn.setProperty("perm", "calls:write")
+        tr_row.addWidget(self.tx_btn)
+        tr_row.addWidget(caption("Speaker"))
+        self.tx_speaker = combo([("prospect", "prospect"), ("operator", "operator")])
+        self.tx_speaker.setAccessibleName("Transcription speaker")
+        self.tx_speaker.currentIndexChanged.connect(lambda: self.tx_thread and self.tx_thread.set_speaker(self.tx_speaker.currentData()))
+        tr_row.addWidget(self.tx_speaker)
+        self.mic_chip = chip("mic off", "neutral")
+        self.mic_chip.setObjectName("mic_chip")
+        tr_row.addWidget(self.mic_chip)
+        tr_row.addStretch(1)
+        trw = QWidget()
+        trw.setLayout(tr_row)
+        tc.add(trw)
+        self.tx_status = caption("Disabled by default (Settings › privacy.allow_live_transcription). Uses the PC microphone or line-in; audio stays in memory.")
+        tc.add(self.tx_status)
+        cl.addWidget(tc)
+        self.summary_card = SummaryCard()
+        self.summary_card.setVisible(False)
+        cl.addWidget(self.summary_card)
         cl.addStretch(1)
         split.addWidget(centre)
+        self.tx_thread: TranscriptionThread | None = None
+        self.frames_source = microphone_frames  # tests inject a synthetic source
+        self.line_sentiment: dict[int, str] = {}
 
         # ---- right: transcript / AI notes / device
         right = QWidget()
@@ -249,13 +352,30 @@ class LiveCallScreen(BaseScreen):
         items = self.picker.selectedItems()
         cid = items[0].data(Qt.ItemDataRole.UserRole) if items else None
         if cid and cid != self.call_id:
+            self.stop_transcription()
             self.call_id = cid
+            self.line_sentiment = {}
             self.load_call()
 
     def load_call(self) -> None:
         cid = self.call_id
         if cid:
-            self.run(lambda: self.api.get(f"/calls/{cid}"), self._show_call)
+            self.run(lambda: (self.api.get(f"/calls/{cid}"), self.api.get(f"/calls/{cid}/summary")), self._show_call_and_summary)
+
+    def _show_call_and_summary(self, res: tuple) -> None:
+        d, sm = res
+        prospect = [t for t in d.get("transcript", []) if t["speaker"] == "prospect"]
+        for t, lab in zip(prospect, sm.get("sentiment_by_turn") or [], strict=False):
+            if lab:
+                self.line_sentiment.setdefault(t["seq"], lab)
+        self.summary = sm
+        self._show_call(d)
+        overall = sm.get("sentiment")
+        set_chip(self.senti_chip, f"sentiment: {overall or '—'}", SENTI_KIND.get(overall or "", "neutral"))
+        has_outcome = bool(d["call"].get("outcome"))
+        self.summary_card.setVisible(has_outcome)
+        if has_outcome:
+            self.summary_card.set_summary(sm)
 
     def _show_call(self, d: dict) -> None:
         self.call = d
@@ -280,7 +400,12 @@ class LiveCallScreen(BaseScreen):
         self.transcript.clear()
         for t in d.get("transcript", []):
             refs = f"  [{', '.join(t.get('knowledge_refs') or [])}]" if t.get("knowledge_refs") else ""
-            self.transcript.addItem(f"{t['speaker'].upper():9s} ({t.get('source')}): {t['text']}{refs}")
+            senti = self.line_sentiment.get(t["seq"]) if t["speaker"] == "prospect" else None
+            item = QListWidgetItem(f"{t['speaker'].upper():9s} ({t.get('source')}): {t['text']}{refs}" + (f"   [{senti}]" if senti else ""))
+            if senti:
+                item.setForeground(QColor(SENTI_COLOR.get(senti, TEXT2)))
+                item.setData(Qt.ItemDataRole.UserRole, senti)
+            self.transcript.addItem(item)
         self.transcript.scrollToBottom()
         self.notes_list.clear()
         for n in d.get("notes", []):
@@ -322,6 +447,10 @@ class LiveCallScreen(BaseScreen):
         self.run(lambda: self.api.post(f"/calls/{cid}/step", body, timeout=90), self._stepped, busy_text="Thinking…")
 
     def _stepped(self, r: dict) -> None:
+        if r.get("sentiment"):
+            self.toast(f"Prospect sentiment: {r['sentiment']} · call overall: {r.get('call_sentiment') or '—'}", "info")
+        if r.get("call_sentiment"):
+            set_chip(self.senti_chip, f"sentiment: {r['call_sentiment']}", SENTI_KIND.get(r["call_sentiment"], "neutral"))
         self.agent_line.setText(r.get("agent_text") or "(no agent line for this state)")
         self.source_badge.setText(f"source: {r.get('source')}")
         self.source_badge.setProperty("role", "badge-mock" if r.get("source") == "llm" else "pill-gold")
@@ -359,6 +488,84 @@ class LiveCallScreen(BaseScreen):
         cid = self.call_id
         if cid and confirm(self, "End call", "End this call and cancel its job? Record an outcome instead if the conversation happened.", "End call", danger=True):
             self.run(lambda: self.api.post(f"/calls/{cid}/cancel", {"reason": "operator_cancel"}), lambda _: self.refresh())
+
+    # ------------------------------------------------------------------ live transcription
+    def toggle_transcription(self) -> None:
+        if self.tx_thread is not None:
+            self.stop_transcription()
+            return
+        if not self.call_id or not self.call:
+            self.toast("Select a live call first", "warning")
+            return
+        if self.call["call"].get("conversation_state") not in LIVE_STATES:
+            self.toast("Transcription works only while the call is live (press Connected first)", "warning")
+            return
+        self.run(lambda: self.api.get("/settings"), self._tx_check_settings)
+
+    def _tx_check_settings(self, s: dict) -> None:
+        vals = s.get("values", {})
+        if not vals.get("privacy.allow_live_transcription"):
+            self.tx_status.setText("Live transcription is OFF in Settings › Privacy (privacy.allow_live_transcription). An admin must enable it first.")
+            self.tx_status.setProperty("role", "warning")
+            self.tx_status.style().unpolish(self.tx_status)
+            self.tx_status.style().polish(self.tx_status)
+            self.toast("Live transcription is disabled in privacy settings", "warning")
+            return
+        dlg = ConsentDialog(self, str(vals.get("privacy.recording_disclosure_text") or ""))
+        if not self.confirm_consent(dlg):
+            return
+        cid = self.call_id
+        self.run(lambda: self.api.post(f"/calls/{cid}/transcription-consent", {"prospect_consented": True, "disclosure_text_read": True}), lambda _: self.start_transcription())
+
+    def confirm_consent(self, dlg: ConsentDialog) -> bool:
+        """Separated so tests can tick the boxes; returns True when consent was confirmed."""
+        return dlg.exec() == QDialog.DialogCode.Accepted and dlg.read_box.isChecked() and dlg.agree_box.isChecked()
+
+    def start_transcription(self) -> None:
+        url = self.api.ws_url("/api/v1/ws/transcribe", call_id=self.call_id or "", language=self.language.currentData() or "auto", speaker=self.tx_speaker.currentData() or "prospect")
+        self.tx_thread = TranscriptionThread(url, self.frames_source)
+        self.tx_thread.message.connect(self._tx_message)
+        self.tx_thread.status.connect(lambda st: self.tx_status.setText(f"Live transcription: {st}"))
+        self.tx_thread.finished_ok.connect(self._tx_finished)
+        self.tx_btn.setText("Stop transcription")
+        set_chip(self.mic_chip, "mic: connecting", "info")
+        self.tx_thread.start()
+
+    def stop_transcription(self) -> None:
+        if self.tx_thread is not None:
+            self.tx_thread.stop()
+
+    def _tx_finished(self) -> None:
+        if self.tx_thread is not None:
+            self.tx_thread.wait(2000)
+        self.tx_thread = None
+        self.tx_btn.setText("Start transcription")
+        set_chip(self.mic_chip, "mic off", "neutral")
+        if self.call_id:
+            self.load_call()
+
+    def _tx_message(self, m: dict) -> None:
+        t = m.get("type")
+        if t == "ready":
+            set_chip(self.mic_chip, "mic: listening", "success")
+            self.tx_status.setText(f"Listening (model {m.get('model')}, {m.get('sample_rate')} Hz, audio stored: {'yes' if m.get('audio_stored') else 'no'})")
+        elif t == "vad":
+            set_chip(self.mic_chip, "mic: speech" if m.get("speech") else "mic: listening", "warning" if m.get("speech") else "success")
+        elif t == "final":
+            if m.get("sentiment") and m.get("seq") is not None:
+                self.line_sentiment[int(m["seq"])] = m["sentiment"]
+            item = QListWidgetItem(f"{(self.tx_speaker.currentData() or 'prospect').upper():9s} (stt): {m.get('text')}" + (f"   [{m['sentiment']}]" if m.get("sentiment") else ""))
+            if m.get("sentiment"):
+                item.setForeground(QColor(SENTI_COLOR.get(m["sentiment"], TEXT2)))
+            self.transcript.addItem(item)
+            self.transcript.scrollToBottom()
+        elif t == "error":
+            set_chip(self.mic_chip, "mic: error", "danger")
+            self.tx_status.setText(f"Transcription stopped: {m.get('error')} [{m.get('code')}]")
+            self.tx_status.setProperty("role", "danger")
+            self.tx_status.style().unpolish(self.tx_status)
+            self.tx_status.style().polish(self.tx_status)
+            self.toast(f"Live transcription: {m.get('error')}", "error")
 
     def on_ws_event(self, env: dict) -> None:
         t = env.get("type")

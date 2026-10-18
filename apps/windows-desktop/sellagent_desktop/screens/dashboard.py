@@ -22,6 +22,7 @@ def _greeting() -> str:
 
 class DashboardScreen(BaseScreen):
     key, title = "dashboard", "Dashboard"
+    scrollable = True
 
     def build(self) -> None:
         self.title_lbl.setVisible(False)  # the greeting is the page title on this screen
@@ -62,6 +63,7 @@ class DashboardScreen(BaseScreen):
         row2 = QHBoxLayout()
         cw = Card("Calls This Week")
         self.chart = BarChart()
+        self.chart.setMinimumHeight(200)
         cw.add(self.chart)
         row2.addWidget(cw, 3)
         cr = Card("Connection Rate")
@@ -90,7 +92,8 @@ class DashboardScreen(BaseScreen):
         row3 = QHBoxLayout()
         rc_card = Card("Recent Calls")
         self.recent = DataTable([("When", lambda r: fmt_dt(r.get("started_at"))), ("Business", "business_name"), ("Phone", "phone_e164"), ("State", "conversation_state"), ("Outcome", "outcome"), ("Duration s", "duration_seconds")])
-        self.recent.setMaximumHeight(210)
+        self.recent.setMinimumHeight(200)
+        self.recent.setMaximumHeight(260)
         self.recent.itemDoubleClicked.connect(lambda *_: self._open_recent())
         rc_card.add(self.recent)
         self.recent_empty = EmptyState("No calls yet — dispatch a job from the Call Console.")
@@ -142,11 +145,12 @@ class DashboardScreen(BaseScreen):
         api = self.api
 
         def fetch() -> dict:
-            out = {"dash": api.get("/reports/dashboard"), "calls": api.get("/calls", limit=8), "campaigns": api.get("/campaigns"), "settings": api.get("/settings"), "speech": api.get("/speech/status"), "kb": api.get("/knowledge", status="approved"), "devices": api.get("/devices"), "connected": api.get("/devices/connected")}
-            try:
-                out["ai"] = api.get("/ai/status")
-            except Exception as exc:  # noqa: BLE001
-                out["ai"] = {"available": False, "message": str(exc)}
+            out = {"dash": api.get("/reports/dashboard"), "calls": api.get("/calls", limit=8), "campaigns": api.get("/campaigns"), "settings": api.get("/settings"), "kb": api.get("/knowledge", status="approved"), "devices": api.get("/devices"), "connected": api.get("/devices/connected")}
+            for key, path in (("ai", "/ai/status"), ("speech", "/speech/status")):
+                try:
+                    out[key] = api.get(path)
+                except Exception as exc:  # noqa: BLE001 - optional status must not blank the dashboard
+                    out[key] = {"available": False, "message": f"status unavailable: {exc}", "stt": {"available": False, "message": str(exc)}, "tts": {"available": False, "message": str(exc)}}
             return out
 
         self.run(fetch, self._show)

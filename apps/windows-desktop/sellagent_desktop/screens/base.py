@@ -18,6 +18,7 @@ class BaseScreen(QWidget):
     key = ""
     title = ""
     subtitle = ""
+    scrollable = False  # long dashboards put their content in a scroll area so cards never get squeezed
 
     def __init__(self, ctx: AppContext, parent: QWidget | None = None):
         super().__init__(parent)
@@ -25,7 +26,21 @@ class BaseScreen(QWidget):
         self.api = ctx.api
         self.last_error: Exception | None = None
         self._busy = 0
-        self.root = QVBoxLayout(self)
+        if self.scrollable:
+            from PySide6.QtWidgets import QFrame, QScrollArea
+
+            outer = QVBoxLayout(self)
+            outer.setContentsMargins(0, 0, 0, 0)
+            area = QScrollArea()
+            area.setWidgetResizable(True)
+            area.setFrameShape(QFrame.Shape.NoFrame)
+            inner = QWidget()
+            inner.setObjectName("Content")
+            area.setWidget(inner)
+            outer.addWidget(area)
+            self.root = QVBoxLayout(inner)
+        else:
+            self.root = QVBoxLayout(self)
         self.root.setContentsMargins(20, 16, 20, 16)
         self.root.setSpacing(10)
         head = QHBoxLayout()

@@ -257,11 +257,14 @@ def test_live_transcription_gate_consent_and_stream(window, backend, qapp, monke
     live.frames_source = silence
     live.toggle_transcription()
     assert _wait_until(qapp, lambda: live.mic_chip.text() in ("mic: listening", "mic: error"), 30)
-    if live.mic_chip.text() == "mic: error":
-        assert "not_allowed" not in live.tx_status.text()  # gate + consent passed; only the STT engine may be missing
+    errored = live.mic_chip.text() == "mic: error"
+    if errored:
+        # gate + consent passed; only the speech engine may be missing (e.g. CI without faster-whisper)
+        assert "not_allowed" not in live.tx_status.text() and "stt_unavailable" in live.tx_status.text()
     live.stop_transcription()
     assert _wait_until(qapp, lambda: live.tx_thread is None, 20)
-    assert live.mic_chip.text() == "mic off"
+    # an error stays visible after the thread ends; a clean stop returns to "mic off"
+    assert live.mic_chip.text() == ("mic: error" if errored else "mic off")
     with backend.client() as c:
         audit = c.get("/api/v1/audit", params={"action": "call.transcription_consent"}).json()
         assert any(a["entity_id"] == call_id for a in audit)

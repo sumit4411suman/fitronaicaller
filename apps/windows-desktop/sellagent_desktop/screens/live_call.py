@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QSplitter, QTabWidget, QVBoxLayout, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import Card, DangerBanner, FormDialog, KeyValueGrid, TextInputDialog, avatar, badge, button, caption, chip, combo, confirm, datetime_edit, fmt_dt, parse_dt, pretty_json, set_chip, status_label
+from sellagent_desktop.widgets import Card, DangerBanner, FormDialog, TextInputDialog, avatar, badge, button, caption, chip, combo, confirm, datetime_edit, fmt_dt, parse_dt, pretty_json, set_chip, status_label
 
 LIVE_STATES = {"connected", "greeting", "permission_to_continue", "needs_discovery", "product_explanation", "objection_handling", "demo_invitation", "human_handoff", "followup_scheduling"}
 PRE_STATES = {"dial_request", "dialing", "ringing"}

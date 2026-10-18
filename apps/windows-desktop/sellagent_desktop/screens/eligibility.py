@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QVBoxLayout
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget
 
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.screens.contact_detail import ConsentDialog

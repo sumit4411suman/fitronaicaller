@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLineEdit, QPlainTextEdit, QTableWidgetItem, QWidget
+from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QPlainTextEdit, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import Card, DataTable, FormDialog, KeyValueGrid, badge, button, caption, combo, confirm, fmt_dt, mock_badge, status_label
+from sellagent_desktop.widgets import Card, DataTable, FormDialog, KeyValueGrid, button, caption, combo, confirm, fmt_dt, status_label
 
 
 class RecordDialog(FormDialog):
@@ -46,6 +46,7 @@ class RecordDialog(FormDialog):
 
 class AudioTestsScreen(BaseScreen):
     key, title = "audio_tests", "Audio feasibility test console"
+    scrollable = True
 
     def build(self) -> None:
         self.plan: list[dict] = []

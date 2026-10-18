@@ -17,7 +17,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fitron.sellagent.R
-import com.fitron.sellagent.brand.BrandColors
 import com.fitron.sellagent.companion.CompanionApp
 import com.fitron.sellagent.core.core
 import com.fitron.sellagent.core.ui.AppHeader
@@ -34,7 +33,7 @@ fun EmergencyScreen() {
     val calls = (context.applicationContext as CompanionApp).calls
     val estop by core.socket.emergencyStopActive.collectAsStateWithLifecycle()
     val active by calls.active.collectAsStateWithLifecycle()
-    val pending by calls.pending.collectAsStateWithLifecycle()
+    val queue by calls.queue.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         AppHeader(stringResource(R.string.emergency_title), stringResource(R.string.emergency_subtitle))
@@ -46,10 +45,10 @@ fun EmergencyScreen() {
         SectionCard(stringResource(R.string.emergency_state)) {
             KeyValueRow(stringResource(R.string.emergency_latched), if (estop) stringResource(R.string.yes) else stringResource(R.string.no), if (estop) Tone.Bad else Tone.Good)
             KeyValueRow(stringResource(R.string.status_active_job), active?.callJobId?.take(12) ?: "-", if (active != null) Tone.Warn else Tone.Neutral)
-            KeyValueRow(stringResource(R.string.calls_incoming_request), pending?.request?.callJobId?.take(12) ?: "-", if (pending != null) Tone.Warn else Tone.Neutral)
+            KeyValueRow(stringResource(R.string.tile_call_queue), queue.size.toString(), if (queue.isNotEmpty()) Tone.Warn else Tone.Neutral)
         }
         SectionCard(stringResource(R.string.emergency_what_title)) {
-            Text(stringResource(R.string.emergency_what_text), style = MaterialTheme.typography.bodySmall, color = BrandColors.TextSecondary)
+            Text(stringResource(R.string.emergency_what_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

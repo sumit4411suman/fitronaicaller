@@ -155,7 +155,7 @@ def error_label() -> QLabel:
 
 
 def button(text: str, role: str | None = None, on_click: Callable[[], None] | None = None, tooltip: str = "") -> QPushButton:
-    b = QPushButton(text)
+    b = QPushButton(text.replace("&", "&&"))  # literal ampersands, not mnemonics
     if role:
         b.setProperty("role", role)
     b.setAccessibleName(text)

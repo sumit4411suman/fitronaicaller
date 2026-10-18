@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QListWidget, QTabWidget, QVBoxLayout, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import DataTable, EmptyState, KeyValueGrid, button, combo, fmt_dt, pretty_json
+from sellagent_desktop.widgets import DataTable, EmptyState, KeyValueGrid, button, fmt_dt, pretty_json
 
 PAGE = 100
 

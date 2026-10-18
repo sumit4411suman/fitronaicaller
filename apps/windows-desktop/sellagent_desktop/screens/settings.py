@@ -7,7 +7,7 @@ from typing import Any
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QScrollArea, QSpinBox, QVBoxLayout, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import Card, KeyValueGrid, button, caption, confirm, mark_invalid, pretty_json, status_label
+from sellagent_desktop.widgets import Card, button, caption, confirm, mark_invalid, pretty_json, status_label
 
 GROUP_TITLES = {"general": "General", "privacy": "Privacy", "calling": "Calling policy & safety", "network": "Network", "ai": "Local AI", "backup": "Backup", "release_gate": "Release gate (read-only, set by audio evidence)"}
 WARN_ON_ENABLE = {

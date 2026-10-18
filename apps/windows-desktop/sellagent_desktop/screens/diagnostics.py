@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QLineEdit, QListWi
 from sellagent_desktop import audio
 from sellagent_desktop.api_client import LONG_TIMEOUT
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import Card, DataTable, KeyValueGrid, badge, button, caption, combo, mock_badge, pretty_json, status_label
+from sellagent_desktop.widgets import Card, DataTable, KeyValueGrid, button, caption, combo, mock_badge, pretty_json, status_label
 
 
 class DiagnosticsScreen(BaseScreen):

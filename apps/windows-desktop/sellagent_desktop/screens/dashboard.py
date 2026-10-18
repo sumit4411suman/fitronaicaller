@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import BORDER, DANGER, GOLD, INFO, SUCCESS, WARNING, BarChart, Card, DataTable, DonutChart, EmptyState, KeyValueGrid, StatCard, badge, button, caption, chip, fmt_dt, set_chip, STATUS_CHIP
+from sellagent_desktop.widgets import BORDER, DANGER, INFO, SUCCESS, WARNING, BarChart, Card, DataTable, DonutChart, EmptyState, KeyValueGrid, StatCard, badge, button, caption, chip, fmt_dt, set_chip, STATUS_CHIP
 
 NOT_CONNECTED = {"none", "no_answer", "busy", "technical_failure", "cancelled"}
 
@@ -194,7 +194,6 @@ class DashboardScreen(BaseScreen):
         items = calls.get("items", [])
         self.recent.set_rows(items)
         self.recent_empty.setVisible(not items)
-        self.recent.setVisible(bool(items))
         self._device(res["devices"], res["connected"].get("connected", []))
         while self.camp_box.count():
             it = self.camp_box.takeAt(0)

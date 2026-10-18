@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 
 import pytest
-
 from sellagent_desktop.api_client import wait_for_idle as wait_idle
 
 pytestmark = pytest.mark.ui

@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,9 +21,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fitron.sellagent.R
-import com.fitron.sellagent.brand.BrandColors
+import com.fitron.sellagent.core.AppInfo
 import com.fitron.sellagent.core.core
 import com.fitron.sellagent.core.net.ConnectionState
+import com.fitron.sellagent.core.telecom.SellAgentInCallService
+import com.fitron.sellagent.protocol.NetworkKind
 import com.fitron.sellagent.protocol.PROTOCOL_VERSION
 
 @Composable
@@ -37,12 +37,27 @@ fun connectionLabel(state: ConnectionState): Pair<String, Tone> = when (state) {
     is ConnectionState.Backoff -> stringResource(R.string.conn_backoff, state.retryInSeconds, state.reason) to Tone.Bad
 }
 
+/** Short chip label: "Connected to PC" / "Not connected". */
+@Composable
+fun connectionChip(state: ConnectionState): Pair<String, Tone> =
+    if (state is ConnectionState.Connected) stringResource(R.string.chip_connected) to Tone.Good else stringResource(R.string.chip_not_connected) to Tone.Bad
+
+@Composable
+fun wifiCallingLabel(observed: Boolean?): Pair<String, Tone> = when (observed) {
+    true -> stringResource(R.string.wifi_calling_active) to Tone.Good
+    false -> stringResource(R.string.wifi_calling_not_on_this_call) to Tone.Neutral
+    null -> stringResource(R.string.unknown_no_public_api) to Tone.Neutral
+}
+
+/** "Device Connection" screen: connection banner, device facts, Disconnect, and the pairing form when unpaired. */
 @Composable
 fun PairingScreen(appLabel: String, vm: PairingViewModel = viewModel()) {
-    val core = LocalContext.current.core()
+    val context = LocalContext.current
+    val core = context.core()
     val pairing by core.store.pairing.collectAsStateWithLifecycle()
     val connection by core.socket.state.collectAsStateWithLifecycle()
     val log by core.socket.log.collectAsStateWithLifecycle()
+    val wifiCall by SellAgentInCallService.wifiCallObserved.collectAsStateWithLifecycle()
     val host by vm.host.collectAsStateWithLifecycle()
     val port by vm.port.collectAsStateWithLifecycle()
     val code by vm.code.collectAsStateWithLifecycle()
@@ -51,35 +66,37 @@ fun PairingScreen(appLabel: String, vm: PairingViewModel = viewModel()) {
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         AppHeader(stringResource(R.string.pairing_title), stringResource(R.string.pairing_subtitle, PROTOCOL_VERSION))
+        val (chipText, chipTone) = connectionChip(connection)
+        BannerCard(chipText + (pairing?.let { " · ${it.backendName}" } ?: ""), chipTone)
 
         SectionCard(stringResource(R.string.pairing_connection)) {
             val (label, tone) = connectionLabel(connection)
             KeyValueRow(stringResource(R.string.pairing_state), label, tone)
-            if (pairing != null) {
-                KeyValueRow(stringResource(R.string.pairing_backend), pairing!!.backendName, Tone.Good)
-                KeyValueRow(stringResource(R.string.pairing_device_id), pairing!!.deviceId.take(12), Tone.Neutral)
-                KeyValueRow(stringResource(R.string.pairing_endpoint), "${pairing!!.host}:${pairing!!.port}", Tone.Neutral)
-                KeyValueRow(stringResource(R.string.pairing_pinned_fp), pairing!!.tlsFingerprint.take(23) + "…", Tone.Good)
-                Text(stringResource(R.string.pairing_token_hidden), style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+            KeyValueRow(stringResource(R.string.status_device), AppInfo.deviceModel(), Tone.Neutral)
+            KeyValueRow(stringResource(R.string.settings_android), AppInfo.androidVersion(), Tone.Neutral)
+            val net = AppInfo.networkKind(context)
+            KeyValueRow(stringResource(R.string.status_network), net, if (net == NetworkKind.WIFI) Tone.Good else Tone.Warn)
+            KeyValueRow(stringResource(R.string.status_battery), AppInfo.batteryPercent(context)?.let { "$it %" } ?: "-", Tone.Neutral)
+            val (wifiText, wifiTone) = wifiCallingLabel(wifiCall)
+            KeyValueRow(stringResource(R.string.call_wifi_calling), wifiText, wifiTone)
+            KeyValueRow(stringResource(R.string.settings_app_version), AppInfo.appVersion(context), Tone.Neutral)
+            val p = pairing
+            if (p != null) {
+                KeyValueRow(stringResource(R.string.pairing_device_id), p.deviceId.take(12), Tone.Neutral)
+                KeyValueRow(stringResource(R.string.pairing_endpoint), "${p.host}:${p.port}", Tone.Neutral)
+                KeyValueRow(stringResource(R.string.pairing_pinned_fp), p.tlsFingerprint.take(23) + "…", Tone.Good)
+                MutedText(stringResource(R.string.pairing_token_hidden))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlineButton(stringResource(R.string.pairing_reconnect)) { core.socket.reconnectNow() }
-                    DangerButton(stringResource(R.string.pairing_forget)) { vm.forget() }
+                    DangerOutlineButton(stringResource(R.string.pairing_disconnect)) { vm.forget() }
                 }
             }
         }
 
         if (pairing == null) {
             SectionCard(stringResource(R.string.pairing_form_title)) {
-                Text(stringResource(R.string.pairing_form_help), style = MaterialTheme.typography.bodySmall, color = BrandColors.TextSecondary)
-                val fieldColors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = BrandColors.Gold,
-                    unfocusedBorderColor = BrandColors.SurfaceBorder,
-                    focusedLabelColor = BrandColors.Gold,
-                    unfocusedLabelColor = BrandColors.TextSecondary,
-                    cursorColor = BrandColors.Gold,
-                    focusedTextColor = BrandColors.TextPrimary,
-                    unfocusedTextColor = BrandColors.TextPrimary,
-                )
+                MutedText(stringResource(R.string.pairing_form_help))
+                val fieldColors = brandFieldColors()
                 OutlinedTextField(
                     value = host, onValueChange = vm::setHost, singleLine = true, colors = fieldColors,
                     label = { Text(stringResource(R.string.pairing_host)) }, modifier = Modifier.fillMaxWidth(),
@@ -116,13 +133,8 @@ fun PairingScreen(appLabel: String, vm: PairingViewModel = viewModel()) {
             }
         }
 
-        SectionCard(stringResource(R.string.pairing_security_title)) {
-            Text(stringResource(R.string.pairing_security_text), style = MaterialTheme.typography.bodySmall, color = BrandColors.TextSecondary)
-        }
-
-        SectionCard(stringResource(R.string.transport_log)) {
-            LogList(log)
-        }
+        SectionCard(stringResource(R.string.pairing_security_title)) { MutedText(stringResource(R.string.pairing_security_text)) }
+        SectionCard(stringResource(R.string.transport_log)) { LogList(log) }
         Text("", modifier = Modifier.padding(8.dp))
     }
 }

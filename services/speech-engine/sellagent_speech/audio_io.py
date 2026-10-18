@@ -6,11 +6,14 @@ import numpy as np
 
 
 def devices() -> list[dict]:
+    """List PC audio devices; returns [] when PortAudio/sounddevice is unavailable or broken (never raises)."""
     try:
         import sounddevice as sd
-    except (ImportError, OSError):
+
+        found = sd.query_devices()
+    except Exception:  # noqa: BLE001 - optional dependency; any failure means "no devices"
         return []
-    return [{"index": i, "name": d["name"], "inputs": d["max_input_channels"], "outputs": d["max_output_channels"], "default_samplerate": d["default_samplerate"]} for i, d in enumerate(sd.query_devices())]
+    return [{"index": i, "name": d["name"], "inputs": d["max_input_channels"], "outputs": d["max_output_channels"], "default_samplerate": d["default_samplerate"]} for i, d in enumerate(found)]
 
 
 def play(audio: np.ndarray, sample_rate: int) -> None:

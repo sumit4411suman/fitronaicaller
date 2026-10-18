@@ -24,7 +24,6 @@ import com.fitron.sellagent.brand.BrandColors
 import com.fitron.sellagent.core.AppInfo
 import com.fitron.sellagent.core.core
 import com.fitron.sellagent.core.ui.AppHeader
-import com.fitron.sellagent.core.ui.DangerButton
 import com.fitron.sellagent.core.ui.GoldButton
 import com.fitron.sellagent.core.ui.KeyValueRow
 import com.fitron.sellagent.core.ui.OutlineButton
@@ -44,15 +43,15 @@ fun SettingsScreen(onPair: () -> Unit) {
         SectionCard(stringResource(R.string.settings_mode)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_human_assisted), style = MaterialTheme.typography.bodyMedium, color = BrandColors.TextPrimary)
-                    Text(stringResource(R.string.settings_mode_help), style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+                    Text(stringResource(R.string.settings_human_assisted), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.settings_mode_help), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 // Human-assisted is the only working path; the toggle is fixed ON and disabled so the state is explicit.
                 Switch(
                     checked = true,
                     onCheckedChange = null,
                     enabled = false,
-                    colors = SwitchDefaults.colors(disabledCheckedTrackColor = BrandColors.GoldDark, disabledCheckedThumbColor = BrandColors.OnGold),
+                    colors = SwitchDefaults.colors(disabledCheckedTrackColor = BrandColors.Gold, disabledCheckedThumbColor = BrandColors.ContentSurface),
                 )
             }
             KeyValueRow(stringResource(R.string.settings_autonomous), stringResource(R.string.settings_autonomous_value), Tone.Warn)
@@ -63,7 +62,7 @@ fun SettingsScreen(onPair: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlineButton(stringResource(R.string.pairing_reconnect), enabled = pairing != null) { core.socket.reconnectNow() }
                 if (pairing == null) GoldButton(stringResource(R.string.pairing_pair)) { onPair() }
-                else DangerButton(stringResource(R.string.pairing_forget)) {
+                else com.fitron.sellagent.core.ui.DangerOutlineButton(stringResource(R.string.pairing_disconnect)) {
                     core.store.forgetPairing()
                     core.outbox.clear()
                 }
@@ -75,7 +74,7 @@ fun SettingsScreen(onPair: () -> Unit) {
             KeyValueRow(stringResource(R.string.settings_protocol), PROTOCOL_VERSION, Tone.Neutral)
             KeyValueRow(stringResource(R.string.settings_device), AppInfo.deviceModel(), Tone.Neutral)
             KeyValueRow(stringResource(R.string.settings_android), AppInfo.androidVersion(), Tone.Neutral)
-            Text(stringResource(R.string.settings_about_text), style = MaterialTheme.typography.bodySmall, color = BrandColors.TextSecondary)
+            Text(stringResource(R.string.settings_about_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text("", modifier = Modifier.padding(8.dp))
     }

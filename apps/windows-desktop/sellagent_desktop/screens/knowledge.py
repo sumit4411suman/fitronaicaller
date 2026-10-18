@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPlainTextEdit, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLineEdit, QListWidget, QPlainTextEdit, QSplitter, QVBoxLayout, QWidget
 from PySide6.QtCore import Qt
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import Card, DataTable, EmptyState, FormDialog, KeyValueGrid, TextInputDialog, badge, button, caption, combo, confirm, fmt_dt, pretty_json, status_label
+from sellagent_desktop.widgets import Card, DataTable, EmptyState, FormDialog, KeyValueGrid, TextInputDialog, button, combo, confirm, fmt_dt, pretty_json, status_label
 
 STATUSES = ("pending_review", "approved", "rejected", "superseded", "expired")
 

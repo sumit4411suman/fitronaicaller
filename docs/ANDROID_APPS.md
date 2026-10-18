@@ -1,6 +1,6 @@
 # SELL AGENT Android apps
 
-Two independent Android Studio / Gradle projects, both dark-gold FITRON themed, both speaking protocol **1.0**
+Two independent Android Studio / Gradle projects with the FITRON brand theme, both speaking protocol **1.0**
 (`packages/shared-protocol/sellagent_protocol/messages.py`) to the local Windows backend over the LAN listener
 (`https/wss://<pc-ip>:8766`).
 
@@ -8,6 +8,13 @@ Two independent Android Studio / Gradle projects, both dark-gold FITRON themed, 
 | --- | --- | --- | --- |
 | **Audio Feasibility Test** | `apps/android-audio-diagnostic` | `com.fitron.sellagent.audiotest` (debug: `.debug`) | Runs the 16-step audio test plan on the real Galaxy S25 and sends `audio_test.result` records. Never places campaign calls. |
 | **Companion** | `apps/android-companion` | `com.fitron.sellagent.companion` (debug: `.debug`) | Human-assisted campaign calling: shows `call.request`, operator taps **Dial**, reports `call.state`, supports `call.cancel` and emergency stop. |
+
+**Theme (approved mockups).** `brand/BrandTheme.kt` and `res/values/colors.xml` are verbatim copies of
+`packages/brand/android/` (`scripts/check_brand_sync.py` passes). `SellAgentTheme(dark = true)` – gold on #0B0B0B – is
+used only for the **Splash** and **Live Call** screens; `SellAgentTheme()` – off-white #F7F6F2 background, white cards
+with #E6E2D6 borders, #1A1A1A text, gold #D4AF37 primary buttons with #0B0B0B text, tinted status chips – for every other
+screen. Red #C62828 is used only for End Call and Emergency Stop. There is **no login, sign-up, cloud account or
+billing screen**: pairing with the PC is the sign-in.
 
 Shared code lives in each app under `app/src/main/java/com/fitron/sellagent/{protocol,brand,core}` and is
 **byte-identical** between the two projects (CI diffs them). The protocol mirror also lives in
@@ -122,7 +129,7 @@ from **Settings ▸ Apps ▸ Default apps ▸ Phone app**.
 | `supports_foreground_service` | `startForeground` succeeded in this process | `ServiceCompat.startForeground` |
 | `remote_audio_capture_verified` | **never** (always `false` from the app) | backend sets it from confirmed test records |
 | `audio_injection_verified` | **never** (always `false` from the app) | backend sets it from confirmed test records |
-| `wifi_calling_active` | **always `null`** | `TelephonyManager.isWifiCallingAvailable` is a hidden API; `ImsMmTelManager` is system-only. The UI says "Unknown (no public API)" |
+| `wifi_calling_active` | `true`/`false` **only during a call observed by our InCallService** (default dialer), from that call's `Call.Details.PROPERTY_WIFI`; otherwise `null` | `Call.Details.hasProperty(PROPERTY_WIFI)`. `TelephonyManager.isWifiCallingAvailable` is hidden and `ImsMmTelManager` is system-only, so outside such a call the UI says "Unknown (no public API)" |
 
 ---
 
@@ -153,7 +160,8 @@ from **Settings ▸ Apps ▸ Default apps ▸ Phone app**.
   `session.reconnect {device_id, last_received_message_id, pending_events}` and then replays its file-backed outbox
   (`files/outbox.jsonl`). Durable envelopes (`call.state`, `audio_test.result`, `session.capabilities`,
   `safety.emergency_stop`) stay in the outbox until an `ack`/`error` with a matching `in_reply_to` arrives.
-* **Heartbeat** every 20 s: `session.heartbeat {device_id, battery_percent, network, wifi_calling_active:null, in_call, capabilities}`.
+* **Heartbeat** every 20 s: `session.heartbeat {device_id, battery_percent, network, wifi_calling_active, in_call, capabilities}`
+  (`wifi_calling_active` is null unless observed via `PROPERTY_WIFI`, see §3).
   `session.heartbeat_ack.emergency_stop_active` and `session.reconnect_ack.emergency_stop_active` drive the local
   emergency-stop latch (the only way the latch is cleared is the PC reporting `false`).
 * **Inbound de-duplication** by `message_id` (LRU of 2000). A duplicate `call.request` is re-acked, not re-shown.
@@ -167,15 +175,45 @@ from **Settings ▸ Apps ▸ Default apps ▸ Phone app**.
 
 ## 6. Screens
 
-### Audio Feasibility Test
+Both apps start with a dark **Splash** (gold FITRON mark, "SELL AGENT" with "AGENT" in gold, subtitle *Local AI calling
+for FITRON sales*, chips Smart / Secure / Local) and, on first launch, a three-page light **Onboarding** with *Skip*
+(what the app does · permissions overview · pairing explained; no account). Shared screens (identical code in both apps):
+
+| Shared screen | What it shows / does |
+| --- | --- |
+| **Device Connection** (pairing) | "Connected to PC" / "Not connected" banner, phone model + Android version, Wi-Fi state, battery, Wi-Fi calling (Active / Not on this call / Unknown), app version, device id, endpoint, pinned fingerprint, *Reconnect*, red outlined **Disconnect** (forgets the token). When unpaired: PC IP, port 8766, pairing code, TLS fingerprint form. Form survives rotation/process death (`SavedStateHandle`). |
+| **Permissions** | One row per permission with reason and a *Granted* chip or gold *Request* button, plus the default-dialer role row; foreground-service *Start & verify*; derived `DeviceCapabilities` with the API behind each flag; *Send session.capabilities*; "What a normal app cannot do". |
+| **Diagnostics** | Rows Microphone (3-s `AudioRecord(VOICE_COMMUNICATION)` RMS dBFS, labelled near-end), Speaker (1 kHz `AudioTrack` tone accepted?), Wi-Fi calling (PROPERTY_WIFI or unknown), Audio route (current), Network latency (median of 3 pinned HTTPS pings to the PC). Gold **Run full test** runs this short self-check; values read "Not run" until measured. |
+| **Live Call** (dark) | Gold timer (from InCallService `STATE_ACTIVE`, else from the OFFHOOK transition), state label (InCallService or TelephonyCallback name), *Human-assisted* chip, route and Wi-Fi-calling chips, local notes area with the statement that no transcript exists (apps cannot access call audio), Mute / Hold / Keypad (`InCallService.setMuted`, `Call.hold/unhold`, `Call.playDtmfTone`) enabled only when InCallService is bound – otherwise disabled with an explanation, red **End call**, Emergency stop. |
+| **Help & Support / About** | Condensed operator help from this document; version, protocol 1.0, device, "no account" statement. |
+
+### Companion (bottom navigation: Home · Contacts · Campaigns · Calls · More; gold active icon)
+
+| Screen | What it does |
+| --- | --- |
+| **Home** | Logo header + settings gear; connection chip + *Human-assisted* chip; **Ready for Calls** card with real heartbeat facts (network/Wi-Fi, Wi-Fi calling, battery, last heartbeat ack, requests waiting); round **Dial** (green; enabled only when a `call.request` is queued, dials the oldest), **End** (red; InCallService only), **Speaker** (route toggle; in a call only). Tiles: Call Queue, Diagnostics, Permissions, Settings, Call Logs, Help. **Current Call Status** card: mode *Human-assisted*, job id, TelephonyCallback state, InCallService state – never an "AI speaking" label. |
+| **Contacts / Campaigns** | Read-only empty state *"Managed on the PC"* with the connection status. Protocol 1.0 has no device contacts/campaign API, so nothing is invented. |
+| **Calls › Call Queue** | Every queued `call.request` (up to 10) with number, display name, mode, language, requested route, expiry countdown, job id, **Dial** / **Decline** per row. **Pause queue** switch: while on, new requests are refused with `error queue_paused`. |
+| **Calls › Call Logs** | Local history per `call_job_id` built from the `call.state` events this phone sent (final state chip, duration measured on the phone from first ACTIVE/OFFHOOK to end). Persisted in `files/call_logs.json`; *Clear local history*. |
+| **Calls › Call Summary** | Job id, number, display name, mode, duration, final state, state-event list, **Add note** – notes stay on this phone in this release (labelled so; nothing in protocol 1.0 carries them). |
+| **More** | Device Connection, Diagnostics, Permissions, Settings, Help & Support, About, red **Emergency Stop** entry. |
+| **Emergency Stop** | Large red button: sends `safety.emergency_stop (issued_by=android)`, ends the call if bound (else "Hang up now"), rejects all queued requests, blocks dialing until `heartbeat_ack.emergency_stop_active=false`. |
+| **Settings** | Calling mode (human-assisted, fixed on; autonomous *Disabled on device*), endpoint, unsent events, reconnect, Disconnect, About. |
+| **Live Call** | Opens automatically when the operator dials a job and closes when the job ends (see shared table). |
+
+Refusals sent as `error` envelopes (each mirrored as `call.state rejected`): `emergency_stop_active`, `autonomous_disabled`
+("autonomous mode not enabled on device"), `unsupported_mode`, `invalid_expiry`, `expired`, `invalid_authorization`,
+`call_phone_not_granted`, `queue_paused`, `duplicate_job`, `queue_full`, `invalid_call_request`.
+
+### Audio Feasibility Test (bottom navigation: Pairing · Permissions · Tests · Call · Report)
 
 | Tab | What it does |
 | --- | --- |
-| **Pairing** | PC IP, port (8766), pairing code, TLS fingerprint (text); shows connection state, backend name, device id, pinned fingerprint; *Reconnect now*, *Forget pairing*. Form state survives rotation and process death (`SavedStateHandle`). |
-| **Permissions** | Requests `CALL_PHONE`, `READ_PHONE_STATE`, `RECORD_AUDIO`, `BLUETOOTH_CONNECT`, `POST_NOTIFICATIONS`; requests the default-dialer role with an explanation; starts/stops the foreground service to *verify* it; shows the derived `DeviceCapabilities` with the API behind each flag; sends `session.capabilities`. Lists what a normal app cannot do. |
-| **Tests** | *Start new run* creates `AFT-yyyyMMdd-HHmm`. The 16 steps use the exact backend `step` ids. Each card: instruction, automatic tool, live metric, free-text observation, **Pass / Fail / Blocked / Not tested** (each sends `audio_test.result` with `test_id, step, direction, status, route, api_used, error_message, metrics, evidence`). Network-config note, unsent counter, big **EMERGENCY STOP**. |
-| **Call** | Dial an operator-typed E.164 number via `TelecomManager.placeCall`; end call (InCallService only); coarse state (TelephonyCallback), detailed state + disconnect cause + route (InCallService); route buttons (earpiece/speaker/bluetooth/wired) reporting which API ran; Wi-Fi calling shown as *Unknown (no public API)*; emergency stop. |
-| **Report** | Test ID, date, device model, Android version, app version, operator's network note, per-step status/api/metrics/evidence/errors, timeline. Share sheet as plain text or JSON. Banner: *"Simulated or emulator results are not evidence. Autonomous AI calling remains disabled until the backend's release gate is opened from operator-confirmed real-device results."* |
+| **Pairing** | The shared Device Connection screen. |
+| **Permissions** | The shared Permissions screen. |
+| **Tests** (light) | *Start new run* creates `AFT-yyyyMMdd-HHmm`. The 16 steps use the exact backend `step` ids. Each card: instruction, automatic tool, live metric, observation, **Pass / Fail / Blocked / Not tested** (each sends `audio_test.result` with `test_id, step, direction, status, route, api_used, error_message, metrics, evidence`). Network-config note, unsent counter, **EMERGENCY STOP**. |
+| **Call** | Light dial screen when idle (E.164 number → `TelecomManager.placeCall`, coarse/detailed state, route buttons). **During an active call it switches to the dark Live Call screen** with the diagnostic route buttons and *Save note to timeline*. |
+| **Report** (light) | Test ID, date, device model, Android version, app version, network note, per-step status/api/metrics/evidence/errors, timeline; share as text or JSON. Banner: *"Simulated or emulator results are not evidence. Autonomous AI calling remains disabled until the backend's release gate is opened from operator-confirmed real-device results."* |
 
 Automatic tools per step:
 
@@ -184,29 +222,15 @@ Automatic tools per step:
 | `pairing` | connection evidence | socket state, backend, endpoint, pinned fingerprint, network, heartbeat acks |
 | `call_state_reporting` | state evidence | TelephonyCallback/InCallService registration + timeline of state changes |
 | `outgoing_call` | dial evidence | last states, `placeCall` log lines |
-| `remote_speech_capture` | probe + mic meter | tries `AudioRecord(VOICE_DOWNLINK/VOICE_CALL/VOICE_UPLINK)` and records the platform's refusal; the 5-s mic meter is labelled **near-end microphone, NOT remote party audio** (`AudioRecord(VOICE_COMMUNICATION)`, 16 kHz, RMS/peak dBFS) |
-| `generated_speech_transmission` | TTS | Hindi + English fixed phrases through `TextToSpeech` with `USAGE_VOICE_COMMUNICATION`; records engine, language availability, route; path is acoustic (speaker → mic) |
+| `remote_speech_capture` | probe + mic meter | tries `AudioRecord(VOICE_DOWNLINK/VOICE_CALL/VOICE_UPLINK)` and records the platform's refusal; the 5-s mic meter is labelled **near-end microphone, NOT remote party audio** |
+| `generated_speech_transmission` | TTS | Hindi + English fixed phrases via `TextToSpeech` with `USAGE_VOICE_COMMUNICATION`; engine, language availability, route; path is acoustic |
 | `simultaneous_two_way` | TTS ‖ mic meter | both at once (12 s) |
-| `route_*` | switch / read | `InCallService.setAudioRoute` when default dialer, else `AudioManager.setCommunicationDevice` (API 31+); records `api_used`, route before/after |
-| `latency_echo_quality` | acoustic loopback | 150 ms 1→4 kHz chirp via `AudioTrack`, recorded with `AudioRecord(VOICE_RECOGNITION)`, cross-correlated → latency ms + peak correlation + noise floor (labelled *acoustic loopback*, not network latency) |
-| `screen_locked` | 60-s lock test | starts the foreground service and counts heartbeat acks / disconnects / telephony callbacks while the screen is locked |
-| `wifi_interruption` | reconnection evidence | reconnect count, disconnects, max backoff, unsent results, transport log |
+| `route_*` | switch / read | `InCallService.setAudioRoute` when default dialer, else `AudioManager.setCommunicationDevice`; `api_used`, route before/after |
+| `latency_echo_quality` | acoustic loopback | 150 ms chirp via `AudioTrack`, recorded with `AudioRecord(VOICE_RECOGNITION)`, cross-correlated → latency, correlation, noise floor (labelled *acoustic loopback*) |
+| `screen_locked` | 60-s lock test | foreground service + counts of heartbeat acks / disconnects / telephony callbacks while locked |
+| `wifi_interruption` | reconnection evidence | reconnects, disconnects, max backoff, unsent results, transport log |
 | `hindi_phrases` / `english_phrases` | TTS | the fixed phrase sets |
-| `jio_wifi_calling` | network evidence | network transport, route, operator note; VoWiFi flag explicitly *unknown* |
-
-### Companion
-
-| Tab | What it does |
-| --- | --- |
-| **Status** | Connection state, backend name, device id, last heartbeat ack, unsent events, battery, network, in-call flag, active job, TelephonyCallback/InCallService/foreground-service state, transport log. Pairing screen opens from here when unpaired. |
-| **Calls** | A `call.request` card with number, display name, mode, language, requested route, expiry countdown and job id. **The operator must tap Dial** – the phone never dials by itself. *Decline* sends `call.state rejected`. Active job card with last reported state, coarse/detailed states, route, *End call* (InCallService only). A red "HANG UP NOW" banner appears when the PC cancels and the app is not the default dialer. |
-| **Stop** | Large red (#C62828) **EMERGENCY STOP**: sends `safety.emergency_stop (issued_by=android)`, ends the call if bound, rejects the pending request and blocks dialing until `heartbeat_ack.emergency_stop_active=false`. |
-| **Permissions** | Same component as the diagnostic app. |
-| **Settings** | Mode (human-assisted, fixed ON; autonomous shown as *Disabled on device*), reconnect, forget pairing, open pairing, about (app version, protocol 1.0, device, Android). |
-
-Refusals sent as `error` envelopes by the Companion: `emergency_stop_active`, `autonomous_disabled`
-("autonomous mode not enabled on device"), `unsupported_mode`, `invalid_expiry`, `expired`, `invalid_authorization`,
-`call_phone_not_granted`, `busy`, `invalid_call_request`. Each refusal is also mirrored as `call.state rejected`.
+| `jio_wifi_calling` | network evidence | network transport, route, operator note; VoWiFi from PROPERTY_WIFI during a call, otherwise *unknown* |
 
 ---
 
@@ -217,8 +241,9 @@ Refusals sent as `error` envelopes by the Companion: `emergency_stop_active`, `a
 * `AudioPlaybackCapture` excludes `USAGE_VOICE_COMMUNICATION` audio, so it cannot capture the far end either.
 * There is **no public API to inject audio into the cellular / VoWiFi uplink**. The only path is acoustic: TTS through
   the loudspeaker picked up by the phone's microphone, with the quality and echo-cancellation artefacts that implies.
-* `TelephonyManager.isWifiCallingAvailable` is not in the public SDK; VoWiFi status is reported as `null`/unknown and
-  must be read from the status bar by the operator.
+* `TelephonyManager.isWifiCallingAvailable` is not in the public SDK. VoWiFi is known only per call, from
+  `Call.Details.PROPERTY_WIFI`, while the app is the default dialer; otherwise it is `null`/unknown and must be read
+  from the status bar by the operator.
 * `InCallService` is bound only while the app is the default dialer. Without the role: coarse states only, no
   programmatic hang-up, route changes through `AudioManager` may be overridden by the Samsung dialer.
 * Android 14+ foreground-service rules: `phoneCall` type needs the dialer role; `microphone` type needs
@@ -227,8 +252,11 @@ Refusals sent as `error` envelopes by the Companion: `emergency_stop_active`, `a
 * The autonomous release gate flag is not pushed to the device yet; `mode=autonomous` is always refused.
 * The release gate on the PC is opened only from operator-confirmed **real-device** `audio_test.result` rows. The
   apps never set `remote_audio_capture_verified` / `audio_injection_verified`.
-* Not verified in this repository state: the projects were written without an Android SDK available to the author,
-  so the first CI run (or Android Studio sync) is the first compilation. See `CHANGELOG`/PR notes.
+* Contacts and Campaigns are not sent to the phone in protocol 1.0; the Companion tabs are empty "Managed on the PC" views.
+* Call notes stay on the phone (protocol 1.0 has no message for them).
+* Build status: these projects were written in an environment without the Android SDK. The pure-Kotlin parts
+  (protocol serialization, outbox, fingerprint pinning) were compiled and unit-tested on the JVM; the Android parts are
+  first compiled by the CI workflow / Android Studio sync.
 
 ---
 
@@ -277,10 +305,12 @@ Test run:
 Companion check (after the diagnostic run):
 
 1. Open **SELL AGENT Companion**, pair it (new pairing code on Windows), grant permissions, request the dialer role.
-2. From Windows dispatch a human-assisted call job to this device. The *Calls* tab shows the card; the *Calls* tab icon
-   turns amber. Tap **Dial** within the expiry → the call is placed → Windows receives `dialing/active/disconnected`.
+2. From Windows dispatch a human-assisted call job to this device. *Calls › Call Queue* shows the row and the *Calls*
+   tab label shows the count. Tap **Dial** within the expiry (or the green Dial on Home) → the dark Live Call screen
+   opens → Windows receives `requested/dialing/active/disconnected`. Check *Call Logs* and *Call Summary* afterwards.
+   Turn on **Pause queue**, dispatch again and confirm Windows reports `queue_paused`; turn it off.
 3. Dispatch another job and press **Cancel** on Windows: with the dialer role the call ends by itself; without it the
    red "HANG UP NOW" banner appears.
 4. Dispatch a job with `mode=autonomous`: it must be refused with "autonomous mode not enabled on device".
-5. Press **EMERGENCY STOP** on the phone: Windows cancels all jobs; the phone refuses new requests until you clear the
+5. Press **More › Emergency Stop** on the phone: Windows cancels all jobs; the phone refuses new requests until you clear the
    stop on Windows and the next heartbeat ack reports it cleared.

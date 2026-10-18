@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,6 +45,7 @@ import com.fitron.sellagent.core.ui.SectionCard
 import com.fitron.sellagent.core.ui.StatusDot
 import com.fitron.sellagent.core.ui.Tone
 import com.fitron.sellagent.core.ui.color
+import com.fitron.sellagent.core.ui.brandFieldColors
 import com.fitron.sellagent.core.ui.connectionLabel
 import com.fitron.sellagent.protocol.AudioRoute
 import com.fitron.sellagent.protocol.TestStatus
@@ -83,8 +83,8 @@ fun TestRunnerScreen(vm: TestRunnerViewModel = viewModel()) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Text(stringResource(R.string.runner_title), style = MaterialTheme.typography.displaySmall, color = BrandColors.Gold)
-                Text(stringResource(R.string.runner_subtitle), style = MaterialTheme.typography.bodySmall, color = BrandColors.TextSecondary)
+                Text(stringResource(R.string.runner_title), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onBackground)
+                Text(stringResource(R.string.runner_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             BannerCard(stringResource(R.string.runner_banner), Tone.Warn)
             SectionCard(stringResource(R.string.runner_test_id)) {
@@ -92,7 +92,7 @@ fun TestRunnerScreen(vm: TestRunnerViewModel = viewModel()) {
                 KeyValueRow(stringResource(R.string.pairing_state), label, tone)
                 KeyValueRow(stringResource(R.string.runner_test_id), run.testId ?: "-", if (run.testId != null) Tone.Good else Tone.Neutral)
                 KeyValueRow(stringResource(R.string.runner_pending), pending.toString(), if (pending == 0) Tone.Good else Tone.Warn)
-                if (run.testId == null) Text(stringResource(R.string.runner_no_run), style = MaterialTheme.typography.bodySmall, color = BrandColors.TextSecondary)
+                if (run.testId == null) Text(stringResource(R.string.runner_no_run), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = networkNote,
                     onValueChange = { networkNote = it; core.store.networkConfigNote = it },
@@ -106,7 +106,7 @@ fun TestRunnerScreen(vm: TestRunnerViewModel = viewModel()) {
                 DangerButton(stringResource(R.string.runner_emergency_stop), modifier = Modifier.fillMaxWidth().height(56.dp)) {
                     vm.session.emergencyStop("operator pressed emergency stop in diagnostic app")
                 }
-                Text(stringResource(R.string.runner_emergency_hint), style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+                Text(stringResource(R.string.runner_emergency_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (estop) KeyValueRow("safety.emergency_stop", stringResource(R.string.call_emergency_blocked), Tone.Bad)
             }
         }
@@ -129,15 +129,7 @@ fun TestRunnerScreen(vm: TestRunnerViewModel = viewModel()) {
 }
 
 @Composable
-private fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = BrandColors.Gold,
-    unfocusedBorderColor = BrandColors.SurfaceBorder,
-    focusedLabelColor = BrandColors.Gold,
-    unfocusedLabelColor = BrandColors.TextSecondary,
-    cursorColor = BrandColors.Gold,
-    focusedTextColor = BrandColors.TextPrimary,
-    unfocusedTextColor = BrandColors.TextPrimary,
-)
+private fun fieldColors() = brandFieldColors()
 
 @Composable
 private fun StepCard(
@@ -158,20 +150,20 @@ private fun StepCard(
             Spacer(Modifier.width(8.dp))
             Text(statusLabel(record.status), color = statusTone(record.status).color(), fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.width(12.dp))
-            Text("${stringResource(R.string.runner_direction)}: ${step.direction}", style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+            Text("${stringResource(R.string.runner_direction)}: ${step.direction}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (record.sent) {
                 Spacer(Modifier.width(12.dp))
                 Text(stringResource(R.string.runner_sent), style = MaterialTheme.typography.labelSmall, color = BrandColors.Success)
             }
         }
         if (!expanded) return@SectionCard
-        Text(stringResource(step.instruction), style = MaterialTheme.typography.bodySmall, color = BrandColors.TextSecondary)
+        Text(stringResource(step.instruction), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         ToolControls(step, enabled, vm)
 
         if (busy) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = BrandColors.Gold, trackColor = BrandColors.SurfaceBorder)
-            Text(stringResource(R.string.runner_busy), style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = BrandColors.Gold, trackColor = MaterialTheme.colorScheme.outline)
+            Text(stringResource(R.string.runner_busy), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (level != null) KeyValueRow(stringResource(R.string.runner_live_level), "%.1f dBFS".format(Locale.ROOT, level), Tone.Info)
             if (countdown != null) KeyValueRow(stringResource(R.string.runner_countdown), countdown.toString(), Tone.Info)
             OutlineButton(stringResource(R.string.cancel)) { vm.cancelMeasurement() }
@@ -180,7 +172,7 @@ private fun StepCard(
         if (record.apiUsed != null) KeyValueRow("api_used", record.apiUsed, Tone.Neutral)
         record.metrics.forEach { (k, v) -> KeyValueRow(k, "%.2f".format(Locale.ROOT, v), Tone.Info) }
         record.evidence.filterKeys { it != "operator_observation" }.forEach { (k, v) ->
-            Text("$k: $v", style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+            Text("$k: $v", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (record.errorMessage != null) KeyValueRow("error", record.errorMessage, Tone.Bad)
 
@@ -213,7 +205,7 @@ private fun ToolControls(step: TestStep, enabled: Boolean, vm: TestRunnerViewMod
             StepTool.CONNECTION -> OutlineButton(stringResource(R.string.tool_check_connection), enabled = enabled) { vm.connectionEvidence(id) }
             StepTool.CALL_STATE -> OutlineButton(stringResource(R.string.tool_snapshot_states), enabled = enabled) { vm.callStateEvidence(id) }
             StepTool.DIAL -> {
-                Text(stringResource(R.string.tool_dial_hint), style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+                Text(stringResource(R.string.tool_dial_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlineButton(stringResource(R.string.tool_record_dial), enabled = enabled) { vm.dialEvidence(id) }
             }
             StepTool.REMOTE_CAPTURE -> {
@@ -236,7 +228,7 @@ private fun ToolControls(step: TestStep, enabled: Boolean, vm: TestRunnerViewMod
             StepTool.TTS_HINDI -> OutlineButton(stringResource(R.string.tool_tts_hindi), enabled = enabled) { vm.tts(id, hindi = true, english = false) }
             StepTool.TTS_ENGLISH -> OutlineButton(stringResource(R.string.tool_tts_english), enabled = enabled) { vm.tts(id, hindi = false, english = true) }
             StepTool.VOWIFI -> {
-                Text(stringResource(R.string.tool_vowifi_hint), style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+                Text(stringResource(R.string.tool_vowifi_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlineButton(stringResource(R.string.tool_vowifi_snapshot), enabled = enabled) { vm.vowifiEvidence(id) }
             }
         }

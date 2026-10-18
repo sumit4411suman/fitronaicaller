@@ -171,6 +171,7 @@ class SetupWizard(QWizard):
 
 class SetupScreen(BaseScreen):
     key, title = "setup", "Setup"
+    scrollable = True
     subtitle = "First-run checklist. The wizard runs automatically until an operator name is saved."
 
     def build(self) -> None:

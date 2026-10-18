@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QHBoxLayout, QHeaderView, QLabel, QPlainTextEdit, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import QHBoxLayout, QHeaderView, QPlainTextEdit, QTableWidget, QTableWidgetItem
 
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.widgets import caption, status_label, button, confirm

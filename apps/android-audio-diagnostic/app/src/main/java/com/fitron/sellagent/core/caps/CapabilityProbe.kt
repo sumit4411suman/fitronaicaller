@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import com.fitron.sellagent.core.AppInfo
+import com.fitron.sellagent.core.telecom.SellAgentInCallService
 import com.fitron.sellagent.protocol.DeviceCapabilities
 
 /**
@@ -33,10 +34,11 @@ class CapabilityProbe(private val context: Context) {
 
     /**
      * Wi-Fi calling (VoWiFi) status. `TelephonyManager#isWifiCallingAvailable` is NOT part of the public SDK
-     * (it is a hidden/system API) and `ImsMmTelManager` is a system API, so a normal app cannot read this.
-     * We therefore report null ("unknown") and let the operator record what the status bar shows.
+     * (hidden/system API) and `ImsMmTelManager` is system-only, so outside a call the answer is null ("unknown").
+     * During a call observed by our InCallService (default dialer) the public `Call.Details.PROPERTY_WIFI` flag
+     * tells whether THAT call runs over Wi-Fi; that observation is the only non-null value ever reported.
      */
-    fun wifiCallingActive(): Boolean? = null
+    fun wifiCallingActive(): Boolean? = SellAgentInCallService.wifiCallObserved.value
 
     /** The list of runtime permissions the apps ask for, filtered to those that exist on this API level. */
     fun runtimePermissions(): List<String> {

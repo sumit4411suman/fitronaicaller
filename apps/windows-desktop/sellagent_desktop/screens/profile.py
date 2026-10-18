@@ -10,6 +10,7 @@ from sellagent_desktop.widgets import Card, KeyValueGrid, avatar, button, captio
 
 class ProfileScreen(BaseScreen):
     key, title = "profile", "Profile"
+    scrollable = True
     subtitle = "Local operator — no cloud account. Everything you do is recorded in the local audit log under this name."
 
     def build(self) -> None:

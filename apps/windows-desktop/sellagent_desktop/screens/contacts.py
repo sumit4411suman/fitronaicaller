@@ -201,7 +201,6 @@ class ContactsScreen(BaseScreen):
         self.table.horizontalHeader().setStretchLastSection(False)
         self.table.setColumnWidth(8, 150)
         self.empty.setVisible(not rows)
-        self.table.setVisible(bool(rows))
         self.page_lbl.setText(f"{offset + 1 if rows else 0}–{offset + len(rows)} of {self.total}")
         self.prev_btn.setEnabled(offset > 0)
         self.next_btn.setEnabled(offset + PAGE < self.total and f != "followup")

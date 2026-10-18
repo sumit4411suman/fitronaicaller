@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QTableWidget, QTableWidgetItem, QVBoxLayout
+from PySide6.QtWidgets import QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QTableWidget, QTableWidgetItem
 
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.widgets import Card, DataTable, button, caption, combo, confirm, status_label
@@ -12,6 +12,7 @@ from sellagent_desktop.widgets import Card, DataTable, button, caption, combo, c
 
 class ImportExportScreen(BaseScreen):
     key, title = "import_export", "Import / export"
+    scrollable = True
     subtitle = "Import contacts from CSV or XLSX. Rows are validated and de-duplicated by phone number before anything is written."
 
     def build(self) -> None:

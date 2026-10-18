@@ -32,6 +32,10 @@ ArchitecturesAllowed=x64compatible
 PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 MinVersion=10.0.19041
+; Close a running SELL AGENT before replacing its files (avoids "MoveFile failed; code 5").
+CloseApplications=force
+CloseApplicationsFilter=*.exe,*.dll,*.pyd
+RestartApplications=no
 ; Unsigned by default: Windows SmartScreen will warn. See docs/DESKTOP_APP.md for code-signing options.
 ; SignTool=signtool
 
@@ -57,6 +61,28 @@ var
   DeleteDataCheck: TNewCheckBox;
   DeleteDataPage: TNewNotebookPage;
 
+procedure StopRunningApp();
+var
+  Code: Integer;
+begin
+  { The desktop app and its backend child lock DLLs in the install folder. Stop both before copying. }
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM {#AppExeName}', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM sellagent-backend.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Sleep(1500);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  StopRunningApp();
+  Result := '';
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  StopRunningApp();
+  Result := True;
+end;
+
 function DataDir(): String;
 begin
   Result := ExpandConstant('{localappdata}\SellAgent');
@@ -73,11 +99,6 @@ begin
   DeleteDataCheck.Width := UninstallProgressForm.StatusLabel.Width;
   DeleteDataCheck.Caption := 'Also delete my SELL AGENT data (contacts, calls, knowledge, backups) in ' + DataDir();
   DeleteDataCheck.Checked := False;
-end;
-
-function InitializeUninstall(): Boolean;
-begin
-  Result := True;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

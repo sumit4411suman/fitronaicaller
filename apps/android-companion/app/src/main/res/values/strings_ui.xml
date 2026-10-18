@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="request">Request</string>
+    <string name="chip_connected">Connected to PC</string>
+    <string name="chip_not_connected">Not connected</string>
+    <string name="wifi_calling_active">Active (this call)</string>
+    <string name="wifi_calling_not_on_this_call">Not on this call</string>
+    <string name="pairing_disconnect">Disconnect</string>
+    <string name="status_device">Phone</string>
+    <string name="status_network">Wi-Fi / network</string>
+    <string name="status_battery">Battery</string>
+    <string name="settings_android">Android</string>
+    <string name="settings_app_version">App version</string>
+    <string name="settings_protocol">Protocol version</string>
+    <string name="settings_device">Device</string>
+    <string name="settings_about">About</string>
+    <string name="call_wifi_calling">Wi-Fi calling</string>
+    <string name="call_route">Audio route</string>
+    <string name="runner_mic_label">Near-end microphone level (NOT remote party audio)</string>
+    <string name="runner_live_level">Live level</string>
+
+    <string name="splash_subtitle">Local AI calling for FITRON sales</string>
+    <string name="splash_chip_smart">Smart</string>
+    <string name="splash_chip_secure">Secure</string>
+    <string name="splash_chip_local">Local</string>
+
+    <string name="onb_skip">Skip</string>
+    <string name="onb_next">Next</string>
+    <string name="onb_get_started">Get started</string>
+    <string name="onb_1_title">What this app does</string>
+    <string name="onb_2_title">Permissions you will be asked for</string>
+    <string name="onb_2_body">Phone (place calls, see call state), Microphone (level checks only), Notifications and Bluetooth. Optionally the default phone app role, which is the only supported way to see detailed call states, switch audio route and end calls. Nothing is granted silently.</string>
+    <string name="onb_3_title">Pair with your PC – no account needed</string>
+    <string name="onb_3_body">There is no login and no cloud account. On the Windows PC open Devices › Pair, then enter the PC\'s IP, the pairing code and the certificate fingerprint here. Pairing is the sign-in; you can disconnect at any time.</string>
+
+    <string name="perm_name_call_phone">Phone calls</string>
+    <string name="perm_name_phone_state">Call state</string>
+    <string name="perm_name_microphone">Microphone</string>
+    <string name="perm_name_notifications">Notifications</string>
+    <string name="perm_name_bluetooth">Bluetooth</string>
+    <string name="perm_why_call_phone">CALL_PHONE – place the call you tapped</string>
+    <string name="perm_why_phone_state">READ_PHONE_STATE – report idle / ringing / off-hook</string>
+    <string name="perm_why_microphone">RECORD_AUDIO – near-end level checks only</string>
+    <string name="perm_why_notifications">POST_NOTIFICATIONS – connection notification</string>
+    <string name="perm_why_bluetooth">BLUETOOTH_CONNECT – Bluetooth headset routing</string>
+
+    <string name="diag_title">Diagnostics</string>
+    <string name="diag_subtitle">Short local self-check with real measurements</string>
+    <string name="diag_not_run">Not run</string>
+    <string name="diag_failed">Failed</string>
+    <string name="diag_tone_played">Tone played</string>
+    <string name="diag_microphone">Microphone</string>
+    <string name="diag_speaker">Speaker</string>
+    <string name="diag_network_latency">Network latency (PC)</string>
+    <string name="diag_wifi_calling_detail">Known only during a call seen by our InCallService (Call.Details.PROPERTY_WIFI); otherwise unknown.</string>
+    <string name="diag_run_full">Run full test</string>
+    <string name="diag_note">This is a quick self-check. The 16-step audio feasibility plan runs in the SELL AGENT Audio Test app.</string>
+
+    <string name="help_title">Help &amp; Support</string>
+    <string name="help_subtitle">From docs/ANDROID_APPS.md</string>
+    <string name="help_pairing_title">Pairing</string>
+    <string name="help_pairing_text">Phone and PC must be on the same Wi-Fi. On Windows open Devices › Pair; enter IP, port 8766, the code and the SHA-256 fingerprint exactly as shown; approve on the PC. If the PC regenerates its certificate, pair again.</string>
+    <string name="help_calls_title">Calls</string>
+    <string name="help_calls_text">Call requests from the PC appear in Calls › Queue. The phone never dials by itself: tap Dial. Autonomous requests are refused in this release. Emergency Stop blocks dialing until the PC clears it.</string>
+    <string name="help_dialer_title">Why the default phone app role?</string>
+    <string name="help_docs_title">Full documentation</string>
+    <string name="help_docs_text">See docs/ANDROID_APPS.md in the SELL AGENT repository for build, install, permissions, test steps and known limitations.</string>
+    <string name="about_no_account">Local app: no account, no login, no cloud. Data stays between this phone and your PC.</string>
+
+    <string name="live_title">Live call</string>
+    <string name="live_mode_human">Human-assisted</string>
+    <string name="live_state">State</string>
+    <string name="live_no_call">No active call</string>
+    <string name="live_notes">Notes (stay on this phone)</string>
+    <string name="live_no_transcript">No transcript: Android does not give apps access to call audio.</string>
+    <string name="live_mute">Mute</string>
+    <string name="live_unmute">Unmute</string>
+    <string name="live_hold">Hold</string>
+    <string name="live_unhold">Resume</string>
+    <string name="live_keypad">Keypad</string>
+    <string name="live_controls_disabled">Mute, Hold and Keypad need the default phone app role (InCallService). Use the Samsung Phone screen instead.</string>
+    <string name="live_end_call">End call</string>
+    <string name="live_emergency">Emergency stop</string>
+</resources>

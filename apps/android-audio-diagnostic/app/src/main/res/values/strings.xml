@@ -27,8 +27,6 @@
     <string name="runner_sent">sent</string>
     <string name="runner_queued">queued</string>
     <string name="runner_busy">Measuring…</string>
-    <string name="runner_mic_label">Near-end microphone level (NOT remote party audio)</string>
-    <string name="runner_live_level">Live level</string>
     <string name="runner_countdown">Seconds remaining</string>
     <string name="runner_pending">Unsent results</string>
 
@@ -93,8 +91,6 @@
     <string name="call_coarse">TelephonyCallback (coarse)</string>
     <string name="call_detailed">InCallService (detailed)</string>
     <string name="call_not_bound">Not bound (not the default dialer)</string>
-    <string name="call_route">Audio route</string>
-    <string name="call_wifi_calling">Wi-Fi calling active</string>
     <string name="call_routes_title">Switch audio route</string>
     <string name="call_last_action">Last action</string>
     <string name="call_dial_result_ok">placeCall issued</string>
@@ -109,4 +105,6 @@
     <string name="report_banner">Simulated or emulator results are not evidence. Autonomous AI calling remains disabled until the backend\'s release gate is opened from operator-confirmed real-device results.</string>
     <string name="report_empty">No run yet. Start one on the Tests tab.</string>
     <string name="report_timeline">Timeline</string>
+    <string name="onb_1_body">SELL AGENT Audio Test runs the 16-step audio feasibility plan on this phone with a real call, measures only what Android allows (near-end microphone, speaker playback, routes, acoustic loopback) and sends each result to the PC. It never places campaign calls.</string>
+    <string name="call_save_note">Save note to timeline</string>
 </resources>

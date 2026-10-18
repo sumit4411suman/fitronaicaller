@@ -18,7 +18,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,6 +46,8 @@ import com.fitron.sellagent.core.ui.KeyValueRow
 import com.fitron.sellagent.core.ui.OutlineButton
 import com.fitron.sellagent.core.ui.SectionCard
 import com.fitron.sellagent.core.ui.Tone
+import com.fitron.sellagent.core.ui.LiveCallScreen
+import com.fitron.sellagent.core.ui.brandFieldColors
 import com.fitron.sellagent.protocol.AudioRoute
 
 private val E164 = Regex("^\\+[1-9][0-9]{6,14}$")
@@ -71,8 +72,61 @@ fun placeTestCall(context: Context, number: String, onNote: (String) -> Unit): S
     }
 }
 
+/** Light dial screen when idle; the dark live-call screen (with diagnostic route controls) during a call. */
 @Composable
 fun CallControlScreen() {
+    val context = LocalContext.current
+    val core = context.core()
+    val session = (context.applicationContext as DiagnosticApp).session
+    val coarse by core.callMonitor.state.collectAsStateWithLifecycle()
+    val calls by SellAgentInCallService.calls.collectAsStateWithLifecycle()
+    val inCall = coarse.telephonyState != android.telephony.TelephonyManager.CALL_STATE_IDLE || calls.isNotEmpty()
+    var liveNotes by rememberSaveable { mutableStateOf("") }
+    if (inCall) {
+        LiveCallScreen(
+            title = stringResource(R.string.call_title),
+            subtitle = session.testId,
+            notes = liveNotes,
+            onNotesChange = { liveNotes = it },
+            onEndCall = {
+                val ok = SellAgentInCallService.endActiveCall()
+                session.note("end call via InCallService: $ok")
+            },
+            onEmergencyStop = { session.emergencyStop("operator pressed emergency stop on live call screen") },
+        ) {
+            RouteControls(session)
+            if (liveNotes.isNotBlank()) {
+                OutlineButton(stringResource(R.string.call_save_note)) { session.note("operator note: ${liveNotes.take(300)}") }
+            }
+        }
+    } else {
+        IdleCallControl()
+    }
+}
+
+@Composable
+private fun RouteControls(session: com.fitron.sellagent.audiotest.TestSession) {
+    val context = LocalContext.current
+    var routeNote by rememberSaveable { mutableStateOf("") }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.call_routes_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
+        listOf(listOf(AudioRoute.EARPIECE, AudioRoute.SPEAKER), listOf(AudioRoute.BLUETOOTH, AudioRoute.WIRED_HEADSET)).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                pair.forEach { r ->
+                    OutlineButton(r, modifier = Modifier.weight(1f)) {
+                        val res = AudioRouting.setRoute(context, r)
+                        routeNote = "${res.apiUsed}: ok=${res.ok} ${res.detail}"
+                        session.note("route $r via ${res.apiUsed}: ok=${res.ok}")
+                    }
+                }
+            }
+        }
+        if (routeNote.isNotBlank()) Text(routeNote, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun IdleCallControl() {
     val context = LocalContext.current
     val core = context.core()
     val session = (context.applicationContext as DiagnosticApp).session
@@ -95,13 +149,9 @@ fun CallControlScreen() {
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = BrandColors.Gold, unfocusedBorderColor = BrandColors.SurfaceBorder,
-                    focusedLabelColor = BrandColors.Gold, unfocusedLabelColor = BrandColors.TextSecondary,
-                    cursorColor = BrandColors.Gold, focusedTextColor = BrandColors.TextPrimary, unfocusedTextColor = BrandColors.TextPrimary,
-                ),
+                colors = brandFieldColors(),
             )
-            if (estop) Text(stringResource(R.string.call_emergency_blocked), style = MaterialTheme.typography.bodySmall, color = BrandColors.Danger)
+            if (estop) Text(stringResource(R.string.call_emergency_blocked), style = MaterialTheme.typography.bodySmall, color = BrandColors.EmergencyStop)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GoldButton(stringResource(R.string.call_dial), enabled = !estop) {
                     ConnectionForegroundService.start(context, context.getString(R.string.call_title))
@@ -113,7 +163,7 @@ fun CallControlScreen() {
                     session.note("end call via InCallService: $ok")
                 }
             }
-            if (!bound) Text(stringResource(R.string.call_end_hint), style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+            if (!bound) Text(stringResource(R.string.call_end_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (lastAction.isNotBlank()) KeyValueRow(stringResource(R.string.call_last_action), lastAction, Tone.Info)
         }
 
@@ -124,7 +174,7 @@ fun CallControlScreen() {
 
         SectionCard(stringResource(R.string.call_detailed)) {
             if (!bound) {
-                Text(stringResource(R.string.call_not_bound), style = MaterialTheme.typography.bodySmall, color = BrandColors.TextSecondary)
+                Text(stringResource(R.string.call_not_bound), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 val d = detailed
                 KeyValueRow("Call state", d?.let { "${SellAgentInCallService.describeState(it.telecomState)} -> ${it.protocolState}" } ?: "-", Tone.Good)
@@ -155,7 +205,7 @@ fun CallControlScreen() {
                     }
                 }
             }
-            if (routeNote.isNotBlank()) Text(routeNote, style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary)
+            if (routeNote.isNotBlank()) Text(routeNote, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         DangerButton(stringResource(R.string.runner_emergency_stop), modifier = Modifier.fillMaxWidth().padding(16.dp).height(56.dp)) {

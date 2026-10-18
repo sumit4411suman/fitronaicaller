@@ -93,4 +93,6 @@
     <string name="live_back">Back</string>
     <string name="settings_title">Settings</string>
     <string name="status_last_heartbeat_ack">Last heartbeat ack</string>
+    <string name="status_active_job">Active call job</string>
+    <string name="status_unsent_events">Unsent events</string>
 </resources>

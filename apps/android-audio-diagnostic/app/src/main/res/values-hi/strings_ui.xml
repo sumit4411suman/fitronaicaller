@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="request">माँगें</string>
+    <string name="chip_connected">PC से जुड़ा</string>
+    <string name="chip_not_connected">जुड़ा नहीं</string>
+    <string name="wifi_calling_active">सक्रिय (यह कॉल)</string>
+    <string name="wifi_calling_not_on_this_call">इस कॉल पर नहीं</string>
+    <string name="pairing_disconnect">डिस्कनेक्ट</string>
+    <string name="status_device">फ़ोन</string>
+    <string name="status_network">Wi-Fi / नेटवर्क</string>
+    <string name="status_battery">बैटरी</string>
+    <string name="settings_android">Android</string>
+    <string name="settings_app_version">ऐप संस्करण</string>
+    <string name="settings_protocol">प्रोटोकॉल संस्करण</string>
+    <string name="settings_device">डिवाइस</string>
+    <string name="settings_about">जानकारी</string>
+    <string name="call_wifi_calling">Wi-Fi कॉलिंग</string>
+    <string name="call_route">ऑडियो रूट</string>
+    <string name="runner_mic_label">निकट-छोर माइक्रोफ़ोन स्तर (दूसरे पक्ष का ऑडियो नहीं)</string>
+    <string name="runner_live_level">लाइव स्तर</string>
+
+    <string name="splash_subtitle">FITRON बिक्री के लिए स्थानीय AI कॉलिंग</string>
+    <string name="splash_chip_smart">स्मार्ट</string>
+    <string name="splash_chip_secure">सुरक्षित</string>
+    <string name="splash_chip_local">स्थानीय</string>
+
+    <string name="onb_skip">छोड़ें</string>
+    <string name="onb_next">आगे</string>
+    <string name="onb_get_started">शुरू करें</string>
+    <string name="onb_1_title">यह ऐप क्या करता है</string>
+    <string name="onb_2_title">आपसे माँगी जाने वाली अनुमतियाँ</string>
+    <string name="onb_2_body">फ़ोन (कॉल करना, कॉल स्थिति देखना), माइक्रोफ़ोन (केवल स्तर जाँच), सूचनाएँ और ब्लूटूथ। वैकल्पिक रूप से डिफ़ॉल्ट फ़ोन ऐप भूमिका, जो विस्तृत कॉल स्थिति देखने, ऑडियो रूट बदलने और कॉल समाप्त करने का एकमात्र समर्थित तरीका है। कुछ भी चुपचाप नहीं दिया जाता।</string>
+    <string name="onb_3_title">अपने PC से पेयर करें – कोई खाता नहीं</string>
+    <string name="onb_3_body">कोई लॉगिन या क्लाउड खाता नहीं है। Windows PC पर Devices › Pair खोलें, फिर यहाँ PC का IP, पेयरिंग कोड और प्रमाणपत्र फ़िंगरप्रिंट दर्ज करें। पेयरिंग ही साइन-इन है; आप कभी भी डिस्कनेक्ट कर सकते हैं।</string>
+
+    <string name="perm_name_call_phone">फ़ोन कॉल</string>
+    <string name="perm_name_phone_state">कॉल स्थिति</string>
+    <string name="perm_name_microphone">माइक्रोफ़ोन</string>
+    <string name="perm_name_notifications">सूचनाएँ</string>
+    <string name="perm_name_bluetooth">ब्लूटूथ</string>
+    <string name="perm_why_call_phone">CALL_PHONE – आपके टैप की गई कॉल करना</string>
+    <string name="perm_why_phone_state">READ_PHONE_STATE – निष्क्रिय / रिंगिंग / ऑफ़-हुक बताना</string>
+    <string name="perm_why_microphone">RECORD_AUDIO – केवल निकट-छोर स्तर जाँच</string>
+    <string name="perm_why_notifications">POST_NOTIFICATIONS – कनेक्शन सूचना</string>
+    <string name="perm_why_bluetooth">BLUETOOTH_CONNECT – ब्लूटूथ हेडसेट रूटिंग</string>
+
+    <string name="diag_title">निदान</string>
+    <string name="diag_subtitle">वास्तविक माप के साथ संक्षिप्त स्थानीय जाँच</string>
+    <string name="diag_not_run">नहीं चलाया</string>
+    <string name="diag_failed">विफल</string>
+    <string name="diag_tone_played">टोन बजा</string>
+    <string name="diag_microphone">माइक्रोफ़ोन</string>
+    <string name="diag_speaker">स्पीकर</string>
+    <string name="diag_network_latency">नेटवर्क विलंबता (PC)</string>
+    <string name="diag_wifi_calling_detail">केवल हमारी InCallService द्वारा देखी गई कॉल के दौरान ज्ञात (Call.Details.PROPERTY_WIFI); अन्यथा अज्ञात।</string>
+    <string name="diag_run_full">पूरा परीक्षण चलाएँ</string>
+    <string name="diag_note">यह एक त्वरित स्व-जाँच है। 16-चरण ऑडियो व्यवहार्यता योजना SELL AGENT ऑडियो टेस्ट ऐप में चलती है।</string>
+
+    <string name="help_title">सहायता</string>
+    <string name="help_subtitle">docs/ANDROID_APPS.md से</string>
+    <string name="help_pairing_title">पेयरिंग</string>
+    <string name="help_pairing_text">फ़ोन और PC एक ही Wi-Fi पर हों। Windows पर Devices › Pair खोलें; IP, पोर्ट 8766, कोड और SHA-256 फ़िंगरप्रिंट ठीक वैसे ही दर्ज करें; PC पर स्वीकृत करें। यदि PC नया प्रमाणपत्र बनाए, फिर से पेयर करें।</string>
+    <string name="help_calls_title">कॉल</string>
+    <string name="help_calls_text">PC से कॉल अनुरोध कॉल › कतार में दिखते हैं। फ़ोन कभी स्वयं डायल नहीं करता: डायल टैप करें। इस संस्करण में स्वायत्त अनुरोध अस्वीकार होते हैं। आपातकालीन रोक PC द्वारा हटाए जाने तक डायलिंग रोकती है।</string>
+    <string name="help_dialer_title">डिफ़ॉल्ट फ़ोन ऐप भूमिका क्यों?</string>
+    <string name="help_docs_title">पूरा दस्तावेज़</string>
+    <string name="help_docs_text">बिल्ड, इंस्टॉल, अनुमतियाँ, परीक्षण चरण और ज्ञात सीमाओं के लिए SELL AGENT रिपॉज़िटरी में docs/ANDROID_APPS.md देखें।</string>
+    <string name="about_no_account">स्थानीय ऐप: कोई खाता, लॉगिन या क्लाउड नहीं। डेटा केवल इस फ़ोन और आपके PC के बीच रहता है।</string>
+
+    <string name="live_title">लाइव कॉल</string>
+    <string name="live_mode_human">मानव-सहायता</string>
+    <string name="live_state">स्थिति</string>
+    <string name="live_no_call">कोई सक्रिय कॉल नहीं</string>
+    <string name="live_notes">नोट्स (इसी फ़ोन पर रहते हैं)</string>
+    <string name="live_no_transcript">कोई ट्रांसक्रिप्ट नहीं: Android ऐप्स को कॉल ऑडियो की पहुँच नहीं देता।</string>
+    <string name="live_mute">म्यूट</string>
+    <string name="live_unmute">अनम्यूट</string>
+    <string name="live_hold">होल्ड</string>
+    <string name="live_unhold">फिर शुरू</string>
+    <string name="live_keypad">कीपैड</string>
+    <string name="live_controls_disabled">म्यूट, होल्ड और कीपैड के लिए डिफ़ॉल्ट फ़ोन ऐप भूमिका (InCallService) चाहिए। इसके बजाय Samsung Phone स्क्रीन का उपयोग करें।</string>
+    <string name="live_end_call">कॉल समाप्त करें</string>
+    <string name="live_emergency">आपातकालीन रोक</string>
+</resources>

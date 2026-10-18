@@ -58,17 +58,24 @@ class SellAgentInCallService : InCallService() {
         call.unregisterCallback(callback)
         _calls.value = _calls.value - call
         publish(call)
+        updateWifiObservation()
     }
 
     @Deprecated("Platform callback kept for API 29-33; API 34 adds onCallEndpointChanged")
     @Suppress("DEPRECATION")
     override fun onCallAudioStateChanged(audioState: CallAudioState?) {
         super.onCallAudioStateChanged(audioState)
-        audioState?.let { _audioRoute.value = routeOf(it.route) }
+        audioState?.let {
+            _audioRoute.value = routeOf(it.route)
+            _muted.value = it.isMuted
+        }
     }
 
     private fun publish(call: Call) {
         val state = stateOf(call)
+        updateWifiObservation()
+        if (state == Call.STATE_ACTIVE && _activeSinceMs.value == null) _activeSinceMs.value = System.currentTimeMillis()
+        if (activeCall() == null) _activeSinceMs.value = null
         val cause = runCatching { call.details?.disconnectCause }.getOrNull()
         val event = DetailedCallEvent(
             telecomState = state,
@@ -91,6 +98,44 @@ class SellAgentInCallService : InCallService() {
 
         private val _audioRoute = MutableStateFlow(AudioRoute.UNKNOWN)
         val audioRoute: StateFlow<String> = _audioRoute
+
+        private val _muted = MutableStateFlow(false)
+        val muted: StateFlow<Boolean> = _muted
+
+        /** Wall-clock millis when the current call became ACTIVE (null when no call is active). */
+        private val _activeSinceMs = MutableStateFlow<Long?>(null)
+        val activeSinceMs: StateFlow<Long?> = _activeSinceMs
+
+        /**
+         * Wi-Fi calling fact: true/false only while a call is present and Call.Details.PROPERTY_WIFI could be read;
+         * null otherwise ("unknown"). This is the ONLY source for wifi_calling_active - there is no public API that
+         * answers it outside a call.
+         */
+        private val _wifiCallObserved = MutableStateFlow<Boolean?>(null)
+        val wifiCallObserved: StateFlow<Boolean?> = _wifiCallObserved
+
+        private fun updateWifiObservation() {
+            val call = activeCall()
+            _wifiCallObserved.value = if (call == null) null else runCatching { call.details?.hasProperty(Call.Details.PROPERTY_WIFI) }.getOrNull()
+        }
+
+        /** Mute/unmute the microphone through InCallService.setMuted. Returns false when not bound. */
+        fun setMutedCompat(muted: Boolean): Boolean {
+            val svc = instance ?: return false
+            return runCatching { svc.setMuted(muted); _muted.value = muted; true }.getOrDefault(false)
+        }
+
+        fun holdActive(hold: Boolean): Boolean {
+            if (instance == null) return false
+            val call = activeCall() ?: return false
+            return runCatching { if (hold) call.hold() else call.unhold(); true }.getOrDefault(false)
+        }
+
+        fun playDtmf(digit: Char): Boolean {
+            if (instance == null) return false
+            val call = activeCall() ?: return false
+            return runCatching { call.playDtmfTone(digit); call.stopDtmfTone(); true }.getOrDefault(false)
+        }
 
         private val _lastEvent = MutableStateFlow<DetailedCallEvent?>(null)
         val lastEvent: StateFlow<DetailedCallEvent?> = _lastEvent

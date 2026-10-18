@@ -99,7 +99,6 @@ def backend(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Backend]:
 @pytest.fixture(scope="session")
 def qapp():
     from PySide6.QtWidgets import QApplication
-
     from sellagent_desktop.theme import apply_theme
 
     app = QApplication.instance() or QApplication([])

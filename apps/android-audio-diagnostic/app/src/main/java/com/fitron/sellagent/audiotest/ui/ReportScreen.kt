@@ -20,7 +20,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fitron.sellagent.R
 import com.fitron.sellagent.audiotest.DiagnosticApp
 import com.fitron.sellagent.audiotest.TestPlan
-import com.fitron.sellagent.brand.BrandColors
 import com.fitron.sellagent.core.AppInfo
 import com.fitron.sellagent.core.core
 import com.fitron.sellagent.core.ui.AppHeader
@@ -60,7 +59,7 @@ fun ReportScreen() {
             KeyValueRow("Android", AppInfo.androidVersion(), Tone.Neutral)
             KeyValueRow("App", "${AppInfo.appVersion(context)} / protocol $PROTOCOL_VERSION", Tone.Neutral)
             KeyValueRow("Network", networkNote.ifBlank { "-" }, Tone.Neutral)
-            if (run.testId == null) Text(stringResource(R.string.report_empty), style = MaterialTheme.typography.bodySmall, color = BrandColors.TextSecondary)
+            if (run.testId == null) Text(stringResource(R.string.report_empty), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GoldButton(stringResource(R.string.report_share_text), enabled = run.testId != null) {
                     share(ReportBuilder.text(context, run, networkNote), "text/plain", "SELL AGENT AFT ${run.testId}")
@@ -77,9 +76,9 @@ fun ReportScreen() {
                 if (r != null) {
                     r.apiUsed?.let { KeyValueRow("api_used", it, Tone.Neutral) }
                     r.errorMessage?.let { KeyValueRow("error", it, Tone.Bad) }
-                    if (r.observation.isNotBlank()) Text(r.observation, style = MaterialTheme.typography.bodySmall, color = BrandColors.TextPrimary)
-                    r.metrics.forEach { (k, v) -> Text("$k = $v", style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary) }
-                    r.evidence.filterKeys { it != "operator_observation" }.forEach { (k, v) -> Text("$k: $v", style = MaterialTheme.typography.labelSmall, color = BrandColors.TextSecondary) }
+                    if (r.observation.isNotBlank()) Text(r.observation, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                    r.metrics.forEach { (k, v) -> Text("$k = $v", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    r.evidence.filterKeys { it != "operator_observation" }.forEach { (k, v) -> Text("$k: $v", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }

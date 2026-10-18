@@ -28,6 +28,7 @@ fun Context.core(): CoreContainer = (applicationContext as CoreHost).core
 class CoreContainer(val app: Application) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val store = SecureStore(app)
+    val uiPrefs = UiPrefs(app)
     val outbox = OutboxQueue(File(app.filesDir, "outbox.jsonl"))
     val probe = CapabilityProbe(app)
     val callMonitor = CallMonitor(app)

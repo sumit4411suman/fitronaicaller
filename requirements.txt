@@ -12,3 +12,5 @@ openpyxl==3.1.5
 cryptography==50.0.2
 python-multipart>=0.0.20
 numpy==2.5.4
+# Windows has no system IANA time-zone database; zoneinfo needs this for Asia/Kolkata
+tzdata>=2025.2

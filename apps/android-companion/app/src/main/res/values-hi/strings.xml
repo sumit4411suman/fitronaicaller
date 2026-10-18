@@ -93,4 +93,6 @@
     <string name="live_back">वापस</string>
     <string name="settings_title">सेटिंग</string>
     <string name="status_last_heartbeat_ack">अंतिम हार्टबीट ack</string>
+    <string name="status_active_job">सक्रिय कॉल जॉब</string>
+    <string name="status_unsent_events">न भेजी गई घटनाएँ</string>
 </resources>

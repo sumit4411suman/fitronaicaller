@@ -14,6 +14,7 @@
 | cryptography | 50.0.2 | backup encryption, TLS cert | yes |
 | python-multipart | >=0.0.20 | uploads | yes |
 | numpy | 2.5.4 | VAD, audio | yes |
+| tzdata | >=2025.2 | IANA time zones for `zoneinfo` on Windows (Asia/Kolkata quiet hours) | found by Windows CI |
 | PySide6-Essentials | 6.8.3 | desktop UI (QtMultimedia included) | installed; UI tests offscreen |
 | faster-whisper / ctranslate2 | 1.2.1 / 4.8.3 | STT | import verified; no model run |
 | piper-tts / onnxruntime | 1.8.0 / 1.31.0 | TTS | import verified; no voice run; GPL-3.0 |

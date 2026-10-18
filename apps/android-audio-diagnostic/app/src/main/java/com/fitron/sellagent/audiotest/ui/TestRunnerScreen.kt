@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -80,7 +82,18 @@ fun TestRunnerScreen(vm: TestRunnerViewModel = viewModel()) {
     var expanded by rememberSaveable { mutableStateOf("pairing") }
     var networkNote by rememberSaveable { mutableStateOf(core.store.networkConfigNote) }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    val listState = rememberLazyListState()
+    var autoScroll by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(expanded, autoScroll) {
+        // After a step is marked, bring the next step into view (item 0 is the header).
+        if (autoScroll) {
+            val i = TestPlan.steps.indexOfFirst { it.step == expanded }
+            if (i >= 0) listState.animateScrollToItem(i + 1)
+            autoScroll = false
+        }
+    }
+
+    LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                 Text(stringResource(R.string.runner_title), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onBackground)
@@ -121,6 +134,11 @@ fun TestRunnerScreen(vm: TestRunnerViewModel = viewModel()) {
                 level = if (busy == step.step) level else null,
                 countdown = if (busy == step.step) countdown else null,
                 onToggle = { expanded = if (expanded == step.step) "" else step.step },
+                onDone = {
+                    val i = TestPlan.steps.indexOf(step)
+                    expanded = TestPlan.steps.getOrNull(i + 1)?.step ?: ""
+                    autoScroll = true
+                },
                 vm = vm,
             )
         }
@@ -141,6 +159,7 @@ private fun StepCard(
     level: Double?,
     countdown: Int?,
     onToggle: () -> Unit,
+    onDone: () -> Unit,
     vm: TestRunnerViewModel,
 ) {
     val index = TestPlan.steps.indexOf(step) + 1
@@ -186,12 +205,12 @@ private fun StepCard(
             colors = fieldColors(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            GoldButton(stringResource(R.string.runner_mark_pass), enabled = enabled, modifier = Modifier.weight(1f)) { vm.session.finish(step.step, TestStatus.PASS) }
-            DangerButton(stringResource(R.string.runner_mark_fail), enabled = enabled, modifier = Modifier.weight(1f)) { vm.session.finish(step.step, TestStatus.FAIL, errorMessage = record.observation.ifBlank { "operator marked fail" }) }
+            GoldButton(stringResource(R.string.runner_mark_pass), enabled = enabled, modifier = Modifier.weight(1f)) { vm.session.finish(step.step, TestStatus.PASS); onDone() }
+            DangerButton(stringResource(R.string.runner_mark_fail), enabled = enabled, modifier = Modifier.weight(1f)) { vm.session.finish(step.step, TestStatus.FAIL, errorMessage = record.observation.ifBlank { "operator marked fail" }); onDone() }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            OutlineButton(stringResource(R.string.runner_mark_blocked), enabled = enabled, modifier = Modifier.weight(1f)) { vm.session.finish(step.step, TestStatus.BLOCKED, errorMessage = record.observation.ifBlank { "blocked: API not available to a normal app" }) }
-            OutlineButton(stringResource(R.string.runner_mark_not_tested), enabled = enabled, modifier = Modifier.weight(1f)) { vm.session.finish(step.step, TestStatus.NOT_TESTED) }
+            OutlineButton(stringResource(R.string.runner_mark_blocked), enabled = enabled, modifier = Modifier.weight(1f)) { vm.session.finish(step.step, TestStatus.BLOCKED, errorMessage = record.observation.ifBlank { "blocked: API not available to a normal app" }); onDone() }
+            OutlineButton(stringResource(R.string.runner_mark_not_tested), enabled = enabled, modifier = Modifier.weight(1f)) { vm.session.finish(step.step, TestStatus.NOT_TESTED); onDone() }
         }
     }
 }

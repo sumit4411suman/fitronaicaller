@@ -6,7 +6,7 @@ Two independent Android Studio / Gradle projects with the FITRON brand theme, bo
 
 | App | Directory | applicationId | Purpose |
 | --- | --- | --- | --- |
-| **Audio Feasibility Test** | `apps/android-audio-diagnostic` | `com.fitron.sellagent.audiotest` (debug: `.debug`) | Runs the 16-step audio test plan on the real Galaxy S25 and sends `audio_test.result` records. Never places campaign calls. |
+| **Audio Feasibility Test** | `apps/android-audio-diagnostic` | `com.fitron.sellagent.audiotest` (debug: `.debug`) | Runs the 18-step audio test plan on the real Galaxy S25 and sends `audio_test.result` records. Never places campaign calls. |
 | **Companion** | `apps/android-companion` | `com.fitron.sellagent.companion` (debug: `.debug`) | Human-assisted campaign calling: shows `call.request`, operator taps **Dial**, reports `call.state`, supports `call.cancel` and emergency stop. |
 
 **Theme (approved mockups).** `brand/BrandTheme.kt` and `res/values/colors.xml` are verbatim copies of
@@ -241,7 +241,7 @@ Refusals sent as `error` envelopes (each mirrored as `call.state rejected`): `em
 | --- | --- |
 | **Pairing** | The shared Device Connection screen. |
 | **Permissions** | The shared Permissions screen. |
-| **Tests** (light) | *Start new run* creates `AFT-yyyyMMdd-HHmm`. The 16 steps use the exact backend `step` ids. Each card: instruction, automatic tool, live metric, observation, **Pass / Fail / Blocked / Not tested** (each sends `audio_test.result` with `test_id, step, direction, status, route, api_used, error_message, metrics, evidence`). Network-config note, unsent counter, **EMERGENCY STOP**. |
+| **Tests** (light) | *Start new run* creates `AFT-yyyyMMdd-HHmm`. The 18 steps use the exact backend `step` ids. Each card: instruction, automatic tool, live metric, observation, **Pass / Fail / Blocked / Not tested** (each sends `audio_test.result` with `test_id, step, direction, status, route, api_used, error_message, metrics, evidence`). Network-config note, unsent counter, **EMERGENCY STOP**. |
 | **Call** | Light dial screen when idle (E.164 number → `TelecomManager.placeCall`, coarse/detailed state, route buttons). **During an active call it switches to the dark Live Call screen** with the diagnostic route buttons and *Save note to timeline*. |
 | **Report** (light) | Test ID, date, device model, Android version, app version, network note, per-step status/api/metrics/evidence/errors, timeline; share as text or JSON. Banner: *"Simulated or emulator results are not evidence. Autonomous AI calling remains disabled until the backend's release gate is opened from operator-confirmed real-device results."* |
 

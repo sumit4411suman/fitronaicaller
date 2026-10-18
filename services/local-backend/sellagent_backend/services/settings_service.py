@@ -43,6 +43,7 @@ DEFAULTS: dict[str, Any] = {
     "ai.piper_voice_en": "en_US-lessac-medium",
     "ai.piper_voice_hi": "",
     "ai.language": "auto",
+    "ai.vad_engine": "auto",
     "privacy.allow_live_transcription": False,
     "workers.campaign_engine_enabled": True,
     "workers.max_open_jobs_per_campaign": 3,
@@ -53,14 +54,6 @@ DEFAULTS: dict[str, Any] = {
     "reports.daily_at": "21:05",
     "backup.encrypt": True,
     "backup.retention_count": 10,
-    "bridge.enabled": False,
-    "bridge.max_turns": 14,
-    "bridge.listen_timeout_s": 8,
-    "bridge.max_utterance_s": 15,
-    "bridge.max_silences": 2,
-    "bridge.mic_threshold_db": 42,
-    "bridge.input_device": "",
-    "bridge.output_device": "",
     "release_gate.autonomous_calling_allowed": False,
     "release_gate.evidence": None,
 }
@@ -130,6 +123,8 @@ def set_value(session: Session, key: str, value: Any, *, actor: str = "operator"
         )
     if key == "calling.default_mode" and value not in {"human_assisted", "autonomous"}:
         raise SettingsError("calling.default_mode must be human_assisted or autonomous")
+    if key == "ai.vad_engine" and value not in {"auto", "silero", "energy"}:
+        raise SettingsError("ai.vad_engine must be auto, silero or energy")
     if key == "ai.llm_provider" and value not in {"ollama", "llamacpp", "none"}:
         raise SettingsError("ai.llm_provider must be ollama, llamacpp or none")
     row = session.get(Setting, key)

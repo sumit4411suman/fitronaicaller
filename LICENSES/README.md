@@ -29,6 +29,8 @@ Inventory date: 2026-10-18. SELL AGENT itself is proprietary (see pyproject.toml
 | pyinstaller 6.22.3 (dev only) | "GPLv2-or-later with a special exception which allows to use PyInstaller to build and distribute non-free programs (including commercial ones)" | https://pypi.org/project/pyinstaller/ | Bootloader exception lets the frozen app stay proprietary; PyInstaller itself is not shipped |
 | ruff, mypy (dev only) | MIT | pypi | Not shipped |
 | webrtcvad-wheels (optional) | MIT + BSD (WebRTC VAD code) | https://pypi.org/project/webrtcvad-wheels/ | Include both notices |
+| llama.cpp / llama-server (optional external LLM runtime, not bundled) | MIT | https://github.com/ggml-org/llama.cpp | Used over its local HTTP API (`ai.llm_provider = llamacpp`); include notice if a binary is ever redistributed |
+| Silero VAD v6 ONNX model (bundled inside faster-whisper as `faster_whisper/assets/silero_vad_v6.onnx`) | MIT | https://github.com/snakers4/silero-vad | Used by `sellagent_speech.vad.SileroVAD`; covered by the faster-whisper/Silero MIT notices |
 | onnxruntime (transitive, via piper/silero) | MIT | https://pypi.org/project/onnxruntime/ | Include notice (UNVERIFIED version) |
 
 ## Android companion libraries

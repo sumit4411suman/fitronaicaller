@@ -138,11 +138,6 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
 
         app.state.workers = WorkerManager(sf, app.state.hub, settings.reports_dir)
         app.state.hub.on_emergency_stop.append(lambda: (app.state.workers.ai.cancel_all(), app.state.workers.speech.cancel_all()))
-        from sellagent_backend.bridge import BridgeManager, default_audio_factory
-
-        app.state.bridge = BridgeManager(sf, conversation_engine, app.state.workers.emit, default_audio_factory(settings, {}))
-        app.state.bridge.loop = asyncio.get_running_loop()
-        app.state.hub.on_emergency_stop.append(app.state.bridge.emergency_stop)
         if not getattr(settings, "disable_workers", False):
             app.state.workers.start()
         task = asyncio.create_task(housekeeping())
@@ -151,7 +146,6 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
             yield
         finally:
             task.cancel()
-            app.state.bridge.stop("backend shutting down")
             await app.state.workers.stop()
             if app.state.lan.running:
                 await app.state.lan.stop()

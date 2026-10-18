@@ -4945,237 +4945,6 @@
         }
       }
     },
-    "/api/v1/calls/bridge/status": {
-      "get": {
-        "tags": [
-          "calls"
-        ],
-        "summary": "Bridge Status",
-        "description": "The AI voice bridge (PC speaker + mic next to the phone on speakerphone). Operator-started only.",
-        "operationId": "bridge_status_api_v1_calls_bridge_status_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-local-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Local-Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Bridge Status Api V1 Calls Bridge Status Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/calls/{call_id}/bridge/start": {
-      "post": {
-        "tags": [
-          "calls"
-        ],
-        "summary": "Bridge Start",
-        "description": "Let the AI talk on this live call through the PC speaker and microphone while the operator watches.\nTake over (bridge/stop) or Emergency stop end the AI part immediately. Does not affect the release gate.",
-        "operationId": "bridge_start_api_v1_calls__call_id__bridge_start_post",
-        "parameters": [
-          {
-            "name": "call_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Call Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-local-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Local-Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BridgeStartIn"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Bridge Start Api V1 Calls  Call Id  Bridge Start Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/calls/{call_id}/bridge/stop": {
-      "post": {
-        "tags": [
-          "calls"
-        ],
-        "summary": "Bridge Stop",
-        "operationId": "bridge_stop_api_v1_calls__call_id__bridge_stop_post",
-        "parameters": [
-          {
-            "name": "call_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Call Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-local-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Local-Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Bridge Stop Api V1 Calls  Call Id  Bridge Stop Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/calls/{call_id}/transcription-consent": {
       "post": {
         "tags": [
@@ -7298,6 +7067,110 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Stt Api V1 Speech Stt Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/speech/pipeline-test": {
+      "post": {
+        "tags": [
+          "speech"
+        ],
+        "summary": "Pipeline Test",
+        "description": "PRERECORDED-AUDIO pipeline test: WAV -> VAD -> faster-whisper -> conversation engine (approved facts +\nguardrails) -> Piper. Measures every stage. Proves the local AI voice pipeline only; NOT call audio.",
+        "operationId": "pipeline_test_api_v1_speech_pipeline_test_post",
+        "parameters": [
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "name": "use_llm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Use Llm"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-local-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_pipeline_test_api_v1_speech_pipeline_test_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Pipeline Test Api V1 Speech Pipeline Test Post"
                 }
               }
             }
@@ -10450,6 +10323,20 @@
         ],
         "title": "Body_import_upload_api_v1_contacts_import_upload_post"
       },
+      "Body_pipeline_test_api_v1_speech_pipeline_test_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_pipeline_test_api_v1_speech_pipeline_test_post"
+      },
       "Body_stt_api_v1_speech_stt_post": {
         "properties": {
           "file": {
@@ -10463,22 +10350,6 @@
           "file"
         ],
         "title": "Body_stt_api_v1_speech_stt_post"
-      },
-      "BridgeStartIn": {
-        "properties": {
-          "language": {
-            "type": "string",
-            "title": "Language",
-            "default": "auto"
-          },
-          "use_llm": {
-            "type": "boolean",
-            "title": "Use Llm",
-            "default": true
-          }
-        },
-        "type": "object",
-        "title": "BridgeStartIn"
       },
       "CallJobIn": {
         "properties": {

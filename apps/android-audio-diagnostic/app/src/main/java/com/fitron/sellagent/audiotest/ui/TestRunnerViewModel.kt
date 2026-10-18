@@ -220,6 +220,25 @@ class TestRunnerViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
+    /** F: which call-audio permissions a normal (non-system) app can actually hold on this phone. */
+    fun apiSupportEvidence(step: String) = runStep(step) {
+        val ctx = core.app
+        fun state(p: String) = if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, p) == android.content.pm.PackageManager.PERMISSION_GRANTED) "granted" else "denied"
+        val ev = linkedMapOf(
+            "CAPTURE_AUDIO_OUTPUT" to state("android.permission.CAPTURE_AUDIO_OUTPUT") + " (signature|privileged: system/OEM apps only)",
+            "MODIFY_PHONE_STATE" to state("android.permission.MODIFY_PHONE_STATE") + " (signature|privileged)",
+            "RECORD_AUDIO" to state(android.Manifest.permission.RECORD_AUDIO) + " (near-end microphone only)",
+            "CALL_PHONE" to state(android.Manifest.permission.CALL_PHONE),
+            "default_dialer" to core.probe.isDefaultDialer().toString(),
+            "in_call_service_bound" to SellAgentInCallService.bound.value.toString(),
+            "public_api_for_remote_call_audio" to "none (InCallService exposes call control and audio ROUTE, not the audio stream)",
+            "public_api_for_uplink_injection" to "none for third-party apps on a cellular/IMS call",
+            "android" to AppInfo.androidVersion(), "device" to AppInfo.deviceModel(),
+        )
+        val privileged = ev["CAPTURE_AUDIO_OUTPUT"]!!.startsWith("granted")
+        session.measure(step, "PackageManager.checkSelfPermission + RoleManager", emptyMap(), ev, if (privileged) "UNEXPECTED: privileged call-audio permission granted - verify" else "privileged call-audio permissions denied to this app (expected)")
+    }
+
     fun dialEvidence(step: String) = runStep(step) {
         val detailed = SellAgentInCallService.lastEvent.value
         session.measure(

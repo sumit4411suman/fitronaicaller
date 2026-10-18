@@ -31,6 +31,8 @@ def dbfs(frame: np.ndarray) -> float:
 
 
 class EnergyVAD:
+    name = "energy"
+
     def __init__(self, cfg: VadConfig | None = None) -> None:
         self.cfg = cfg or VadConfig()
         self._frame = int(self.cfg.sample_rate * self.cfg.frame_ms / 1000)
@@ -84,3 +86,49 @@ class EnergyVAD:
             elif not self.in_speech:
                 self._speech_frames = 0
         return onset
+
+
+class SileroVAD:
+    """Silero VAD (snakers4/silero-vad, MIT) using the ONNX model that ships inside faster-whisper
+    (``faster_whisper/assets/silero_vad_v6.onnx``) - no extra download. Batch segmentation of 16 kHz float32 audio.
+    Neural, so far more robust to noise and music than :class:`EnergyVAD`; slower (~1-3 ms per 30 ms frame on CPU)."""
+
+    name = "silero"
+
+    def __init__(self, *, sample_rate: int = 16000, threshold: float = 0.5, min_speech_ms: int = 250, min_silence_ms: int = 500, speech_pad_ms: int = 200) -> None:
+        if sample_rate != 16000:
+            raise ValueError("SileroVAD here expects 16 kHz audio")
+        self.sample_rate = sample_rate
+        self.threshold = threshold
+        self.min_speech_ms = min_speech_ms
+        self.min_silence_ms = min_silence_ms
+        self.speech_pad_ms = speech_pad_ms
+
+    @staticmethod
+    def available() -> tuple[bool, str]:
+        try:
+            from faster_whisper.vad import get_speech_timestamps  # noqa: F401
+        except ImportError:
+            return False, "Silero VAD needs faster-whisper (which bundles the ONNX model and onnxruntime)"
+        return True, "silero_vad_v6.onnx via faster-whisper"
+
+    def process(self, audio: np.ndarray) -> list[Segment]:
+        from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+        opts = VadOptions(threshold=self.threshold, min_speech_duration_ms=self.min_speech_ms, min_silence_duration_ms=self.min_silence_ms, speech_pad_ms=self.speech_pad_ms)
+        stamps = get_speech_timestamps(np.asarray(audio, dtype=np.float32), opts, sampling_rate=self.sample_rate)
+        return [Segment(s["start"] / self.sample_rate, s["end"] / self.sample_rate) for s in stamps]
+
+
+def make_vad(kind: str = "auto", sample_rate: int = 16000) -> EnergyVAD | SileroVAD:
+    """'silero' (raises if unavailable), 'energy', or 'auto' (Silero when installed, else energy)."""
+    if kind not in ("auto", "silero", "energy"):
+        raise ValueError("vad kind must be auto, silero or energy")
+    if kind == "energy":
+        return EnergyVAD(VadConfig(sample_rate=sample_rate))
+    ok, msg = SileroVAD.available()
+    if ok:
+        return SileroVAD(sample_rate=sample_rate)
+    if kind == "silero":
+        raise RuntimeError(msg)
+    return EnergyVAD(VadConfig(sample_rate=sample_rate))

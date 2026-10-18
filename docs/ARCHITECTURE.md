@@ -13,7 +13,7 @@
                                                                              |              |
                                                      +-----------------------+--+    +------+------------------+
                                                      | Android companion        |    | Audio feasibility test   |
-                                                     | pairing, call.request,   |    | 16-step real-device plan |
+                                                     | pairing, call.request,   |    | 18-step real-device plan |
                                                      | call.state, emergency    |    | results -> audio_tests   |
                                                      +--------------------------+    +--------------------------+
                                                                  |

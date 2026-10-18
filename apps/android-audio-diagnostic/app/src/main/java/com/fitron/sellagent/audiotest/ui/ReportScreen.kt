@@ -24,6 +24,7 @@ import com.fitron.sellagent.core.AppInfo
 import com.fitron.sellagent.core.core
 import com.fitron.sellagent.core.ui.AppHeader
 import com.fitron.sellagent.core.ui.BannerCard
+import com.fitron.sellagent.core.ui.CoreDest
 import com.fitron.sellagent.core.ui.GoldButton
 import com.fitron.sellagent.core.ui.KeyValueRow
 import com.fitron.sellagent.core.ui.LogList
@@ -33,7 +34,7 @@ import com.fitron.sellagent.core.ui.Tone
 import com.fitron.sellagent.protocol.PROTOCOL_VERSION
 
 @Composable
-fun ReportScreen() {
+fun ReportScreen(navigate: (CoreDest) -> Unit = {}) {
     val context = LocalContext.current
     val core = context.core()
     val session = (context.applicationContext as DiagnosticApp).session
@@ -81,6 +82,21 @@ fun ReportScreen() {
                     r.evidence.filterKeys { it != "operator_observation" }.forEach { (k, v) -> Text("$k: $v", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
+        }
+        SectionCard(stringResource(R.string.report_tools)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlineButton(stringResource(R.string.ts_title), modifier = Modifier.weight(1f)) { navigate(CoreDest.TROUBLESHOOTING) }
+                OutlineButton(stringResource(R.string.logs_title), modifier = Modifier.weight(1f)) { navigate(CoreDest.LOGS) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlineButton(stringResource(R.string.diag_title), modifier = Modifier.weight(1f)) { navigate(CoreDest.DIAGNOSTICS) }
+                OutlineButton(stringResource(R.string.battery_title), modifier = Modifier.weight(1f)) { navigate(CoreDest.BATTERY) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlineButton(stringResource(R.string.mic_test_title), modifier = Modifier.weight(1f)) { navigate(CoreDest.MIC_TEST) }
+                OutlineButton(stringResource(R.string.speaker_test_title), modifier = Modifier.weight(1f)) { navigate(CoreDest.SPEAKER_TEST) }
+            }
+            OutlineButton(stringResource(R.string.route_title)) { navigate(CoreDest.AUDIO_ROUTE) }
         }
         SectionCard(stringResource(R.string.report_timeline)) { LogList(run.timeline, maxLines = 60) }
         Text("", modifier = Modifier.padding(12.dp))

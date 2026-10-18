@@ -9,7 +9,7 @@ import com.fitron.sellagent.audiotest.DiagnosticApp
 import com.fitron.sellagent.audiotest.TestPlan
 import com.fitron.sellagent.audiotest.audio.LoopbackLatency
 import com.fitron.sellagent.audiotest.audio.RemoteCaptureProbe
-import com.fitron.sellagent.audiotest.audio.TtsSpeaker
+import com.fitron.sellagent.core.audio.TtsSpeaker
 import com.fitron.sellagent.core.AppInfo
 import com.fitron.sellagent.core.net.ConnectionState
 import com.fitron.sellagent.core.service.ConnectionForegroundService

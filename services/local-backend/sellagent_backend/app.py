@@ -30,17 +30,19 @@ from sellagent_backend.api.v1 import (
     knowledge,
     reports,
     speech,
+    system,
+    transcribe,
     ws,
 )
 from sellagent_backend.api.v1 import settings as settings_api
 from sellagent_backend.config import API_PREFIX, APP_NAME, APP_VERSION, Settings, get_settings
-from sellagent_backend.db import make_engine, make_session_factory, migrate
+from sellagent_backend.db import engine_for, make_session_factory, migrate
 from sellagent_backend.lan import LanServer
 from sellagent_backend.security.pairing import PairingManager
 from sellagent_backend.security.secret_store import read_secret_file, write_secret_file
 from sellagent_backend.security.tls import ensure_certificate
 from sellagent_backend.security.tokens import generate_token, hash_token
-from sellagent_backend.services import call_jobs, settings_service
+from sellagent_backend.services import settings_service
 from sellagent_backend.telecom import AndroidCompanionAdapter, ManualAdapter
 from sellagent_backend.ws.hub import Hub
 
@@ -84,7 +86,7 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
-        engine = make_engine(settings.db_path)
+        engine = engine_for(settings)
         migrate.upgrade(engine)
         sf = make_session_factory(engine)
         with sf() as s:
@@ -97,6 +99,9 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
             token = generate_token()
             write_secret_file(settings.local_token_path, token)
         app.state.local_token_hash = hash_token(token)
+        from sellagent_backend.security.auth import jwt_secret
+
+        app.state.jwt_secret = jwt_secret(settings.data_dir)
         app.state.settings = settings
         app.state.engine = engine
         app.state.session_factory = sf
@@ -125,19 +130,23 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
                         await app.state.lan.start()
                     elif not app.state.lan_requested and app.state.lan.running:
                         await app.state.lan.stop()
-                    with sf() as s3:
-                        call_jobs.expire_stale(s3)
-                        s3.commit()
                 except Exception:  # noqa: BLE001
                     log.exception("housekeeping failed")
                 await asyncio.sleep(5)
 
+        from sellagent_backend.workers import WorkerManager
+
+        app.state.workers = WorkerManager(sf, app.state.hub, settings.reports_dir)
+        app.state.hub.on_emergency_stop.append(lambda: (app.state.workers.ai.cancel_all(), app.state.workers.speech.cancel_all()))
+        if not getattr(settings, "disable_workers", False):
+            app.state.workers.start()
         task = asyncio.create_task(housekeeping())
         log.info("%s %s backend ready on http://%s:%s (data: %s)", APP_NAME, APP_VERSION, settings.host, settings.port, settings.data_dir)
         try:
             yield
         finally:
             task.cancel()
+            await app.state.workers.stop()
             if app.state.lan.running:
                 await app.state.lan.stop()
             engine.dispose()
@@ -169,6 +178,6 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
         log.exception("unhandled error (request %s)", getattr(request.state, "request_id", None))
         return JSONResponse({"code": "internal_error", "error": "internal error; see backend log", "request_id": getattr(request.state, "request_id", None)}, status_code=500)
 
-    for r in (health.router, auth.router, contacts.router, contacts.sup_router, campaigns.router, calls.router, calls.calls_router, followups.router, knowledge.router, ai.router, speech.router, reports.router, reports.audit_router, settings_api.router, settings_api.backup_router, devices.router, devices.device_public_router, audio_tests.router, ws.router):
+    for r in (health.router, auth.public_router, auth.router, auth.users_router, calls.safety_router, contacts.router, contacts.sup_router, campaigns.router, calls.router, calls.calls_router, followups.router, knowledge.router, ai.router, speech.router, reports.router, reports.audit_router, settings_api.router, settings_api.backup_router, devices.router, devices.device_public_router, audio_tests.router, system.router, reports.generated_router, ws.router, transcribe.router):
         app.include_router(r, prefix=API_PREFIX)
     return app

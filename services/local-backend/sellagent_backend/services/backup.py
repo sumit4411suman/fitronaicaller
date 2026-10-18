@@ -53,30 +53,34 @@ def decrypt_bytes(blob: bytes, passphrase: str) -> tuple[bytes, dict[str, Any]]:
     return data, json.loads(header)
 
 
-def _snapshot(db_path: Path) -> bytes:
-    src = sqlite3.connect(db_path)
+def _snapshot(db_path: Path, key: str | None = None) -> bytes:
+    """Consistent PLAINTEXT image of the live database (decrypted when ``key`` is given).
+    Callers must encrypt it before it touches disk outside the temp file."""
+    tmp = db_path.parent / f".snapshot-{os.getpid()}.db"
+    tmp.unlink(missing_ok=True)
     try:
-        mem = sqlite3.connect(":memory:")
-        src.backup(mem)
-        src.close()
-        tmp = db_path.parent / f".snapshot-{os.getpid()}.db"
-        disk = sqlite3.connect(tmp)
-        mem.backup(disk)
-        disk.close()
-        mem.close()
-        data = tmp.read_bytes()
-        tmp.unlink(missing_ok=True)
-        return data
+        if key is not None:
+            from sellagent_backend.db import crypto
+
+            crypto.export(db_path, key, tmp, None)
+        else:
+            src = sqlite3.connect(db_path)
+            disk = sqlite3.connect(tmp)
+            try:
+                src.backup(disk)
+            finally:
+                disk.close()
+                src.close()
+        return tmp.read_bytes()
     finally:
-        try:
-            src.close()
-        except sqlite3.ProgrammingError:
-            pass
+        tmp.unlink(missing_ok=True)
 
 
-def create_backup(db_path: Path, backups_dir: Path, *, passphrase: str | None, app_version: str, keep: int = 10) -> dict[str, Any]:
+def create_backup(db_path: Path, backups_dir: Path, *, passphrase: str | None, app_version: str, keep: int = 10, key: str | None = None) -> dict[str, Any]:
+    if key is not None and not passphrase:
+        raise BackupError("the database is encrypted; backups must be encrypted too - provide a passphrase (>= 8 chars)")
     backups_dir.mkdir(parents=True, exist_ok=True)
-    data = _snapshot(db_path)
+    data = _snapshot(db_path, key)
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S-%f")[:-3] + "Z"
     meta = {"created_at": ts, "app_version": app_version, "sha256": hashlib.sha256(data).hexdigest(), "size": len(data), "encrypted": bool(passphrase)}
     if passphrase:
@@ -142,19 +146,41 @@ def verify_backup(path: Path, passphrase: str | None = None) -> dict[str, Any]:
     return {"ok": True, "sha256": digest, "tables": tables, **meta}
 
 
-def restore_backup(path: Path, db_path: Path, *, passphrase: str | None = None) -> dict[str, Any]:
+def restore_backup(path: Path, db_path: Path, *, passphrase: str | None = None, key: str | None = None) -> dict[str, Any]:
     """Verify, then atomically replace the live database. Caller must dispose all engines first
-    and re-run migrations afterwards. A pre-restore safety copy is written next to the DB."""
+    and re-run migrations afterwards. A pre-restore safety copy (in the live, possibly encrypted,
+    form) is written next to the DB. With ``key`` the restored database is re-encrypted."""
+    import shutil
+
     info = verify_backup(path, passphrase)
     blob = path.read_bytes()
     data = decrypt_bytes(blob, passphrase or "")[0] if path.suffix == ".sabk" else blob
     if db_path.exists():
         safety = db_path.with_name(db_path.stem + f".pre-restore-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.db")
-        safety.write_bytes(_snapshot(db_path))
+        if key is None:
+            safety.write_bytes(_snapshot(db_path))
+        else:
+            from sellagent_backend.db import crypto
+
+            c = crypto.connect(db_path, key)
+            c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            c.close()
+            shutil.copyfile(db_path, safety)
         info["pre_restore_copy"] = str(safety)
     for suffix in ("-wal", "-shm"):
         Path(str(db_path) + suffix).unlink(missing_ok=True)
-    tmp = db_path.with_suffix(".restoring")
-    tmp.write_bytes(data)
-    os.replace(tmp, db_path)
+    plain_tmp = db_path.with_suffix(".restoring-plain")
+    plain_tmp.write_bytes(data)
+    try:
+        if key is None:
+            os.replace(plain_tmp, db_path)
+        else:
+            from sellagent_backend.db import crypto
+
+            enc_tmp = db_path.with_suffix(".restoring")
+            crypto.export(plain_tmp, None, enc_tmp, key)
+            os.replace(enc_tmp, db_path)
+    finally:
+        plain_tmp.unlink(missing_ok=True)
+    info["database_encrypted"] = key is not None
     return info

@@ -40,6 +40,7 @@ def create(session: Session, data: dict[str, Any], *, actor: str = "operator") -
         max_attempts_per_contact=int(data.get("max_attempts_per_contact") or 3),
         quiet_hours_start=data.get("quiet_hours_start"), quiet_hours_end=data.get("quiet_hours_end"),
         requires_consent=bool(data.get("requires_consent", True)), starts_at=data.get("starts_at"), ends_at=data.get("ends_at"),
+        auto_followup=bool(data.get("auto_followup", True)), followup_after_days=int(data.get("followup_after_days") or 2),
     )
     session.add(c)
     session.flush()
@@ -51,7 +52,7 @@ def update(session: Session, campaign_id: str, data: dict[str, Any], *, actor: s
     c = _get(session, campaign_id)
     if c.status in ("active", "completed", "archived") and any(k in data for k in ("calling_mode", "requires_consent")):
         raise CampaignError("cannot change mode/consent policy of an active or finished campaign")
-    for k in ("name", "description", "calling_mode", "script_id", "language", "max_calls_per_day", "max_attempts_per_contact", "quiet_hours_start", "quiet_hours_end", "requires_consent", "starts_at", "ends_at"):
+    for k in ("name", "description", "calling_mode", "script_id", "language", "max_calls_per_day", "max_attempts_per_contact", "quiet_hours_start", "quiet_hours_end", "requires_consent", "starts_at", "ends_at", "auto_followup", "followup_after_days"):
         if k in data:
             setattr(c, k, data[k])
     if c.status == "authorized" and data:
@@ -110,6 +111,9 @@ def stats(session: Session, campaign_id: str) -> dict[str, int]:
     for st, n in rows:
         out[st] = int(n)
     out["total"] = sum(out.values())
+    finished = out["called"] + out["done"]
+    reachable = out["total"] - out["excluded"]
+    out["progress_percent"] = round(100 * finished / reachable, 1) if reachable else 0.0
     return out
 
 

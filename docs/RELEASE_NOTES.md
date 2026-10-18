@@ -1,5 +1,17 @@
 # Release notes
 
+## 0.2.0 (2026-10-18) - every blueprint function
+
+* Encrypted local database (SQLCipher AES-256) with a DPAPI-protected key; older plaintext databases are converted automatically.
+* Users, roles (admin, manager, operator, viewer) and JWT sign-in with PIN; per-area permissions on every endpoint.
+* Background workers: Call Queue, Campaign Engine (Start Campaign), Follow-up Scheduler (reminders, automatic follow-ups),
+  daily Report Worker (JSON/CSV/HTML), AI and Speech workers with cancellation; desktop notifications.
+* Streaming LLM replies, real-time transcription (consent-gated, audio never stored), Hindi/English sentiment, call summary.
+* Knowledge import from PDF and DOCX; follow-up calendar; campaign progress; contact category; dashboard comparisons.
+* Android: battery-optimization screen, logs and troubleshooting, standalone microphone/speaker/audio-route tests.
+* Windows fix: bundle `tzdata` (Windows has no IANA time-zone database).
+* Coverage of every blueprint item: `docs/BLUEPRINT_COVERAGE.md`.
+
 ## 0.1.0 (2026-10-18) - first engineering release
 
 **Delivered and verified by automated tests**

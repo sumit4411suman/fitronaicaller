@@ -1,4 +1,4 @@
-package com.fitron.sellagent.audiotest.audio
+package com.fitron.sellagent.core.audio
 
 import android.content.Context
 import android.media.AudioAttributes

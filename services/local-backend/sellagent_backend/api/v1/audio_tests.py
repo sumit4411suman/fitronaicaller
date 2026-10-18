@@ -7,14 +7,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sellagent_backend.api.deps import get_db, require_local_auth
+from sellagent_backend.api.deps import get_db, require_area
 from sellagent_backend.api.schemas import AudioTestIn, AudioTestOut, Ok
 from sellagent_backend.api.v1.errors import not_found
 from sellagent_backend.db.models import AudioTest
 from sellagent_backend.services import audit, settings_service
 from sellagent_backend.telecom import audio_gate_status
 
-router = APIRouter(prefix="/audio-tests", tags=["audio-tests"], dependencies=[Depends(require_local_auth)])
+router = APIRouter(prefix="/audio-tests", tags=["audio-tests"], dependencies=[Depends(require_area("audio_tests"))])
 
 TEST_PLAN = [
     {"step": "pairing", "direction": "none", "title": "Secure pairing Windows <-> Android over the same Wi-Fi"},

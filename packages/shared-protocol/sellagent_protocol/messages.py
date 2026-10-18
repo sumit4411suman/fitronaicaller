@@ -57,6 +57,8 @@ class MessageType(StrEnum):
     # Safety
     EMERGENCY_STOP = "safety.emergency_stop"
     EMERGENCY_STOP_ACK = "safety.emergency_stop_ack"
+    # Desktop notifications (backend -> desktop only; devices ignore unknown types)
+    EVENT = "event"
     # Errors / acks
     ERROR = "error"
     ACK = "ack"
@@ -257,6 +259,13 @@ class Ack(StrictModel):
     message_id: str
 
 
+class Event(StrictModel):
+    """Generic desktop notification, e.g. queue.ready, followup.due, report.ready, worker.error."""
+
+    name: Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-z0-9_.]+$")]
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
 _PAYLOADS: dict[MessageType, type[BaseModel]] = {
     MessageType.PAIRING_REQUEST: PairingRequest,
     MessageType.PAIRING_RESPONSE: PairingResponse,
@@ -274,6 +283,7 @@ _PAYLOADS: dict[MessageType, type[BaseModel]] = {
     MessageType.AUDIO_TEST_RESULT: AudioTestResult,
     MessageType.EMERGENCY_STOP: EmergencyStop,
     MessageType.EMERGENCY_STOP_ACK: Ack,
+    MessageType.EVENT: Event,
     MessageType.ERROR: ErrorEvent,
     MessageType.ACK: Ack,
 }

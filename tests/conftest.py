@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sellagent_backend.app import create_app
 from sellagent_backend.config import Settings, reset_settings
-from sellagent_backend.db import make_engine, make_session_factory, migrate
+from sellagent_backend.db import make_session_factory, migrate
 from sqlalchemy.orm import Session
 
 LOCAL_TOKEN = "test-local-token-0123456789abcdef"
@@ -19,14 +19,16 @@ LOCAL_TOKEN = "test-local-token-0123456789abcdef"
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     os.environ["SELLAGENT_DATA_DIR"] = str(tmp_path / "data")
-    s = reset_settings(data_dir=tmp_path / "data", lan_enabled=False, llm_provider="none")
+    s = reset_settings(data_dir=tmp_path / "data", lan_enabled=False, llm_provider="none", disable_workers=True)
     s.ensure_dirs()
     return s
 
 
 @pytest.fixture
 def engine(settings: Settings):
-    eng = make_engine(settings.db_path)
+    from sellagent_backend.db import engine_for
+
+    eng = engine_for(settings)
     migrate.upgrade(eng)
     yield eng
     eng.dispose()

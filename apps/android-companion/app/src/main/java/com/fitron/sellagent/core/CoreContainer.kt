@@ -3,7 +3,9 @@ package com.fitron.sellagent.core
 import android.app.Application
 import android.content.Context
 import com.fitron.sellagent.core.caps.CapabilityProbe
+import com.fitron.sellagent.core.log.AppLog
 import com.fitron.sellagent.core.net.DeviceSocket
+import com.fitron.sellagent.core.power.BatteryOptimization
 import com.fitron.sellagent.core.net.OutboxQueue
 import com.fitron.sellagent.core.security.SecureStore
 import com.fitron.sellagent.core.service.ConnectionForegroundService
@@ -26,6 +28,11 @@ interface CoreHost {
 fun Context.core(): CoreContainer = (applicationContext as CoreHost).core
 
 class CoreContainer(val app: Application) {
+    init {
+        AppLog.init(app)
+        AppLog.i("app", "start ${AppInfo.deviceModel()} ${AppInfo.androidVersion()} app ${AppInfo.appVersion(app)}")
+    }
+
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val store = SecureStore(app)
     val uiPrefs = UiPrefs(app)
@@ -39,7 +46,7 @@ class CoreContainer(val app: Application) {
         telephonyCallbackRegistered = callMonitor.registered.value,
         inCallServiceBound = SellAgentInCallService.bound.value,
         foregroundServiceVerified = ConnectionForegroundService.running.value,
-        notes = notes,
+        notes = listOfNotNull(BatteryOptimization.note(app), notes).joinToString("; "),
     )
 
     val inCall: Boolean

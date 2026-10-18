@@ -89,6 +89,7 @@ class Contact(TimestampMixin, Base):
     opt_out_reason: Mapped[str | None] = mapped_column(String(200))
     opted_out_at: Mapped[datetime | None] = mapped_column(TZDateTime)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    category: Mapped[str | None] = mapped_column(String(50))
 
     permissions: Mapped[list[ContactPermission]] = relationship(back_populates="contact", cascade="all, delete-orphan")
     campaign: Mapped[Campaign | None] = relationship(back_populates="contacts", foreign_keys=[campaign_id])
@@ -161,6 +162,8 @@ class Campaign(TimestampMixin, Base):
     requires_consent: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     starts_at: Mapped[datetime | None] = mapped_column(TZDateTime)
     ends_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    auto_followup: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    followup_after_days: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
 
     contacts: Mapped[list[Contact]] = relationship(back_populates="campaign", foreign_keys="Contact.campaign_id")
     members: Mapped[list[CampaignContact]] = relationship(back_populates="campaign", cascade="all, delete-orphan")
@@ -245,6 +248,9 @@ class Call(TimestampMixin, Base):
     audio_route: Mapped[str | None] = mapped_column(String(20))
     recording_consent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     recorded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    transcription_consent_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    sentiment: Mapped[str | None] = mapped_column(String(10))
+    summary: Mapped[dict[str, Any] | None] = mapped_column(SA_JSON)
 
     events: Mapped[list[CallEvent]] = relationship(back_populates="call", cascade="all, delete-orphan")
 
@@ -284,6 +290,7 @@ class Transcript(Base):
     confidence: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(20), default="typed", nullable=False)  # typed | stt | tts | llm
     knowledge_refs: Mapped[list[str] | None] = mapped_column(SA_JSON)
+    sentiment: Mapped[str | None] = mapped_column(String(10))
     created_at: Mapped[datetime] = mapped_column(TZDateTime, default=utcnow, nullable=False)
 
     __table_args__ = (UniqueConstraint("call_id", "seq", name="uq_transcripts_seq"),)
@@ -312,6 +319,8 @@ class Followup(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)  # open | done | cancelled
     note: Mapped[str | None] = mapped_column(Text)
     completed_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    notified_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    call_job_id: Mapped[str | None] = mapped_column(String(32))
 
     __table_args__ = (Index("ix_followups_due_at", "due_at"), Index("ix_followups_status", "status"))
 
@@ -439,6 +448,28 @@ class AudioTest(TimestampMixin, Base):
         CheckConstraint("status IN ('pass','fail','blocked','not_tested')", name="ck_audio_tests_status"),
         CheckConstraint("kind IN ('real_device','simulated','automated')", name="ck_audio_tests_kind"),
     )
+
+
+# --------------------------------------------------------------------------- users / roles
+
+
+class User(TimestampMixin, Base):
+    """Local operator accounts. Authentication is a PIN (scrypt hash) exchanged for a short-lived JWT."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    username: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    pin_hash: Mapped[str] = mapped_column(String(200), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(TZDateTime)
+    last_login_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    token_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+    __table_args__ = (CheckConstraint("role IN ('admin','manager','operator','viewer')", name="ck_users_role"),)
 
 
 # --------------------------------------------------------------------------- settings / audit

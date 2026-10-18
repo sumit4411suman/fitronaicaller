@@ -35,6 +35,9 @@ Piper (TTS). The backend talks to them over localhost only and never to the inte
 | `telecom/` | `ManualAdapter` (human-assisted) and `AndroidCompanionAdapter` (dial via phone), `audio_gate_status` |
 | `ws/hub.py` | device/desktop WebSocket registry, de-dup, call-state application, emergency stop fan-out, reconnect replay |
 | `api/v1/` | REST routers + WebSocket endpoints; OpenAPI at `/docs`, spec committed to `docs/api/openapi.json` |
+| `workers/` | Call Queue, Campaign Engine, Follow-up Scheduler and Report workers (periodic, DB work in threads) plus single-slot AI and Speech executors with cancellation |
+| `security/auth.py` | users, PIN hashing, JWT, role permission matrix |
+| `db/crypto.py` | SQLCipher key management, in-place encryption of legacy databases, encrypted export/import for backups |
 | `lan.py` | second uvicorn server for device routes only, started/stopped by the housekeeping task |
 | `app.py` | factory, lifespan (migrate, seed knowledge, token), request ids, error envelopes |
 

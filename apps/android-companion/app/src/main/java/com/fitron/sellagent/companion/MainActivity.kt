@@ -50,6 +50,13 @@ import com.fitron.sellagent.companion.ui.MoreScreen
 import com.fitron.sellagent.companion.ui.SettingsScreen
 import com.fitron.sellagent.core.core
 import com.fitron.sellagent.core.ui.AboutScreen
+import com.fitron.sellagent.core.ui.AudioRouteScreen
+import com.fitron.sellagent.core.ui.BatteryScreen
+import com.fitron.sellagent.core.ui.CoreDest
+import com.fitron.sellagent.core.ui.LogsScreen
+import com.fitron.sellagent.core.ui.MicTestScreen
+import com.fitron.sellagent.core.ui.SpeakerTestScreen
+import com.fitron.sellagent.core.ui.TroubleshootingScreen
 import com.fitron.sellagent.core.ui.DiagnosticsScreen
 import com.fitron.sellagent.core.ui.HelpScreen
 import com.fitron.sellagent.core.ui.OnboardingScreen
@@ -71,6 +78,24 @@ object Routes {
     const val ABOUT = "about"
     const val EMERGENCY = "emergency"
     const val LIVE = "live"
+    const val LOGS = "logs"
+    const val TROUBLESHOOTING = "troubleshooting"
+    const val BATTERY = "battery"
+    const val MIC_TEST = "mic_test"
+    const val SPEAKER_TEST = "speaker_test"
+    const val AUDIO_ROUTE = "audio_route"
+
+    fun of(dest: CoreDest): String = when (dest) {
+        CoreDest.CONNECTION -> CONNECTION
+        CoreDest.PERMISSIONS -> PERMISSIONS
+        CoreDest.DIAGNOSTICS -> DIAGNOSTICS
+        CoreDest.BATTERY -> BATTERY
+        CoreDest.LOGS -> LOGS
+        CoreDest.TROUBLESHOOTING -> TROUBLESHOOTING
+        CoreDest.MIC_TEST -> MIC_TEST
+        CoreDest.SPEAKER_TEST -> SPEAKER_TEST
+        CoreDest.AUDIO_ROUTE -> AUDIO_ROUTE
+    }
 }
 
 private data class Tab(val route: String, val label: Int, val icon: ImageVector)
@@ -166,7 +191,13 @@ private fun CompanionNav() {
                 composable(Routes.CALLS) { CallsScreen() }
                 composable(Routes.MORE) { MoreScreen(navigate = { navController.navigate(it) }) }
                 composable(Routes.CONNECTION) { PairingScreen(appLabel = stringResource(R.string.app_short_label)) }
-                composable(Routes.DIAGNOSTICS) { DiagnosticsScreen() }
+                composable(Routes.DIAGNOSTICS) { DiagnosticsScreen(navigate = { navController.navigate(Routes.of(it)) }) }
+                composable(Routes.LOGS) { LogsScreen() }
+                composable(Routes.TROUBLESHOOTING) { TroubleshootingScreen(navigate = { navController.navigate(Routes.of(it)) }) }
+                composable(Routes.BATTERY) { BatteryScreen() }
+                composable(Routes.MIC_TEST) { MicTestScreen() }
+                composable(Routes.SPEAKER_TEST) { SpeakerTestScreen() }
+                composable(Routes.AUDIO_ROUTE) { AudioRouteScreen() }
                 composable(Routes.PERMISSIONS) { PermissionsScreen() }
                 composable(Routes.SETTINGS) { SettingsScreen(onPair = { navController.navigate(Routes.CONNECTION) }) }
                 composable(Routes.HELP) { HelpScreen() }

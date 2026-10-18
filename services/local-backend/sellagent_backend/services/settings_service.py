@@ -39,10 +39,18 @@ DEFAULTS: dict[str, Any] = {
     "network.lan_pairing_enabled": False,
     "ai.llm_provider": "ollama",
     "ai.llm_model": "qwen3:1.7b",
-    "ai.whisper_model": "small",
+    "ai.whisper_model": "base",
     "ai.piper_voice_en": "en_US-lessac-medium",
     "ai.piper_voice_hi": "",
     "ai.language": "auto",
+    "privacy.allow_live_transcription": False,
+    "workers.campaign_engine_enabled": True,
+    "workers.max_open_jobs_per_campaign": 3,
+    "followups.auto_create": True,
+    "followups.default_after_days": 2,
+    "followups.remind_minutes_before": 15,
+    "reports.daily_enabled": True,
+    "reports.daily_at": "21:05",
     "backup.encrypt": True,
     "backup.retention_count": 10,
     "release_gate.autonomous_calling_allowed": False,
@@ -93,7 +101,7 @@ def _coerce(key: str, value: Any) -> Any:
     if isinstance(default, str):
         if not isinstance(value, str):
             raise SettingsError(f"{key} expects a string")
-        if key.endswith(("quiet_hours_start", "quiet_hours_end")):
+        if key.endswith(("quiet_hours_start", "quiet_hours_end", "daily_at")):
             parts = value.split(":")
             if len(parts) != 2 or not all(p.isdigit() for p in parts) or not (0 <= int(parts[0]) < 24 and 0 <= int(parts[1]) < 60):
                 raise SettingsError(f"{key} must be HH:MM")

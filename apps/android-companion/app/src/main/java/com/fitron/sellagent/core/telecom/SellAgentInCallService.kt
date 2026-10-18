@@ -7,6 +7,7 @@ import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.DisconnectCause
 import android.telecom.InCallService
+import com.fitron.sellagent.core.log.AppLog
 import com.fitron.sellagent.protocol.AudioRoute
 import com.fitron.sellagent.protocol.CallState
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -68,6 +69,9 @@ class SellAgentInCallService : InCallService() {
         audioState?.let {
             _audioRoute.value = routeOf(it.route)
             _muted.value = it.isMuted
+            _supportedRoutes.value = listOf(
+                CallAudioState.ROUTE_EARPIECE, CallAudioState.ROUTE_SPEAKER, CallAudioState.ROUTE_BLUETOOTH, CallAudioState.ROUTE_WIRED_HEADSET,
+            ).filter { r -> it.supportedRouteMask and r != 0 }.map { r -> routeOf(r) }
         }
     }
 
@@ -85,6 +89,7 @@ class SellAgentInCallService : InCallService() {
         )
         _lastEvent.value = event
         _events.tryEmit(event)
+        AppLog.i("incall", "call ${describeState(state)} route=${event.audioRoute}${event.disconnectCause?.let { " cause=$it" } ?: ""}")
     }
 
     companion object {
@@ -98,6 +103,10 @@ class SellAgentInCallService : InCallService() {
 
         private val _audioRoute = MutableStateFlow(AudioRoute.UNKNOWN)
         val audioRoute: StateFlow<String> = _audioRoute
+
+        private val _supportedRoutes = MutableStateFlow<List<String>>(emptyList())
+        /** Routes the platform reports as supported for the current call (CallAudioState.supportedRouteMask). */
+        val supportedRoutes: StateFlow<List<String>> = _supportedRoutes
 
         private val _muted = MutableStateFlow(false)
         val muted: StateFlow<Boolean> = _muted

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sellagent_backend.api.deps import get_db, require_local_auth
+from sellagent_backend.api.deps import get_db, require_area
 from sellagent_backend.api.schemas import (
     CampaignIn,
     CampaignOut,
@@ -19,7 +19,7 @@ from sellagent_backend.services import campaigns as svc
 from sellagent_backend.services import reports
 from sellagent_backend.services.campaigns import CampaignError
 
-router = APIRouter(prefix="/campaigns", tags=["campaigns"], dependencies=[Depends(require_local_auth)])
+router = APIRouter(prefix="/campaigns", tags=["campaigns"], dependencies=[Depends(require_area("campaigns"))])
 
 
 @router.get("", response_model=list[CampaignOut])
@@ -82,3 +82,31 @@ def stats(campaign_id: str, db: Session = Depends(get_db)) -> dict:
     if db.get(Campaign, campaign_id) is None:
         raise not_found("campaign not found")
     return {**svc.stats(db, campaign_id), **reports.campaign_report(db, campaign_id)}
+
+
+@router.post("/{campaign_id}/start")
+async def start(campaign_id: str, request: Request, db: Session = Depends(get_db)) -> dict:
+    """'Start Campaign': authorize (if draft) and activate, then let the campaign engine create the first call job."""
+    c = db.get(Campaign, campaign_id)
+    if c is None:
+        raise not_found("campaign not found")
+    try:
+        if c.status == "draft":
+            svc.transition(db, campaign_id, "authorized")
+        if c.status in ("authorized", "paused"):
+            svc.transition(db, campaign_id, "active")
+    except CampaignError as exc:
+        raise bad_request(str(exc)) from exc
+    if c.status != "active":
+        raise bad_request(f"campaign cannot be started from status {c.status}")
+    db.commit()
+    result = await request.app.state.workers.periodic["campaign_engine"].run_once()
+    return {"campaign": CampaignOut.model_validate(c).model_dump(), "engine": result, "stats": svc.stats(db, campaign_id)}
+
+
+@router.post("/{campaign_id}/pause", response_model=CampaignOut)
+def pause(campaign_id: str, db: Session = Depends(get_db)) -> Campaign:
+    try:
+        return svc.transition(db, campaign_id, "paused")
+    except CampaignError as exc:
+        raise (not_found if "not found" in str(exc) else bad_request)(str(exc)) from exc

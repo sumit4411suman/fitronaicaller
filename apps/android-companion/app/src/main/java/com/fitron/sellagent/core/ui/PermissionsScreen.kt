@@ -34,6 +34,8 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fitron.sellagent.R
 import com.fitron.sellagent.core.core
+import com.fitron.sellagent.core.log.AppLog
+import com.fitron.sellagent.core.power.BatteryOptimization
 import com.fitron.sellagent.core.service.ConnectionForegroundService
 import com.fitron.sellagent.core.telecom.SellAgentInCallService
 
@@ -46,11 +48,15 @@ fun PermissionsScreen() {
     val refresh = { tick++ }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh() }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        result.forEach { (perm, granted) -> AppLog.i("permission", "${perm.substringAfterLast('.')} granted=$granted") }
         core.callMonitor.start()
         refresh()
     }
-    val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { refresh() }
+    val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        AppLog.i("permission", "ROLE_DIALER held=${core.probe.isDefaultDialer()}")
+        refresh()
+    }
 
     val monitorRegistered by core.callMonitor.registered.collectAsStateWithLifecycle()
     val inCallBound by SellAgentInCallService.bound.collectAsStateWithLifecycle()
@@ -84,6 +90,12 @@ fun PermissionsScreen() {
                 if (intent != null) roleLauncher.launch(intent)
             }
             KeyValueRow(stringResource(R.string.perm_incall_bound), yesNo(inCallBound), if (inCallBound) Tone.Good else Tone.Neutral)
+            val batteryIgnored = remember(tick) { BatteryOptimization.isIgnoring(context) }
+            PermissionRow(
+                name = stringResource(R.string.battery_title),
+                why = stringResource(R.string.battery_perm_why),
+                granted = batteryIgnored == true,
+            ) { BatteryOptimization.requestExemption(context) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GoldButton(stringResource(R.string.perm_request_all)) { permissionLauncher.launch(core.probe.runtimePermissions().toTypedArray()) }
                 OutlineButton(stringResource(R.string.perm_open_settings)) {

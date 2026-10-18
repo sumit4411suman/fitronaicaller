@@ -10,7 +10,7 @@ from sellagent_protocol import Envelope, ErrorEvent, MessageType
 from sqlalchemy import select
 
 from sellagent_backend.db.models import PairedDevice
-from sellagent_backend.security.tokens import hash_token, is_expired, tokens_match
+from sellagent_backend.security.tokens import hash_token, is_expired
 
 log = logging.getLogger("sellagent.ws")
 router = APIRouter(prefix="/ws", tags=["websocket"])
@@ -62,9 +62,10 @@ async def device_ws(ws: WebSocket) -> None:
 
 @router.websocket("/desktop")
 async def desktop_ws(ws: WebSocket) -> None:
-    token = _token_from(ws)
-    if not token or not tokens_match(token, ws.app.state.local_token_hash):
-        await ws.close(code=status.WS_1008_POLICY_VIOLATION, reason="invalid local token")
+    from sellagent_backend.api.deps import resolve_principal
+
+    if resolve_principal(ws.app.state, _token_from(ws)) is None:
+        await ws.close(code=status.WS_1008_POLICY_VIOLATION, reason="invalid local token or session")
         return
     await ws.accept()
     hub = ws.app.state.hub

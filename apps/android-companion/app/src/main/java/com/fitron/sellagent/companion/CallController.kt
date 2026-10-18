@@ -9,6 +9,7 @@ import android.telecom.TelecomManager
 import androidx.core.content.ContextCompat
 import com.fitron.sellagent.R
 import com.fitron.sellagent.core.CoreContainer
+import com.fitron.sellagent.core.log.AppLog
 import com.fitron.sellagent.core.service.ConnectionForegroundService
 import com.fitron.sellagent.core.telecom.AudioRouting
 import com.fitron.sellagent.core.telecom.SellAgentInCallService
@@ -361,6 +362,7 @@ class CallController(private val context: Context, private val core: CoreContain
             detail = detail?.take(300),
         )
         core.socket.send(Envelope.of(MessageType.CALL_STATE, ev, CallStateEvent.serializer()), durable = true)
+        AppLog.i("call.state", "job ${callJobId.take(8)} -> $state ($source)${cause?.let { " cause=$it" } ?: ""}")
         val nowMs = System.currentTimeMillis()
         val stamp = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
         upsertLog(callJobId) { e ->
@@ -375,6 +377,7 @@ class CallController(private val context: Context, private val core: CoreContain
     }
 
     private fun log(line: String) {
+        AppLog.i("calls", line)
         val stamp = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
         _events.value = (_events.value + "$stamp $line").takeLast(100)
     }

@@ -11,6 +11,7 @@ from sellagent_desktop.widgets import Card, DataTable, EmptyState, KeyValueGrid,
 
 class DevicesScreen(BaseScreen):
     key, title = "devices", "Android device pairing"
+    scrollable = True
 
     def build(self) -> None:
         self.connected: list[str] = []

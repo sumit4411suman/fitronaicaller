@@ -194,7 +194,6 @@ class DashboardScreen(BaseScreen):
         items = calls.get("items", [])
         self.recent.set_rows(items)
         self.recent_empty.setVisible(not items)
-        self.recent.setVisible(bool(items))
         self._device(res["devices"], res["connected"].get("connected", []))
         while self.camp_box.count():
             it = self.camp_box.takeAt(0)

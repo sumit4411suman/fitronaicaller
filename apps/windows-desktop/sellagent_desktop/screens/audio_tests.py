@@ -46,6 +46,7 @@ class RecordDialog(FormDialog):
 
 class AudioTestsScreen(BaseScreen):
     key, title = "audio_tests", "Audio feasibility test console"
+    scrollable = True
 
     def build(self) -> None:
         self.plan: list[dict] = []

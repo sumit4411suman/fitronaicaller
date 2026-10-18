@@ -9,23 +9,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -36,87 +42,137 @@ import com.fitron.sellagent.R
 import com.fitron.sellagent.brand.BrandColors
 import com.fitron.sellagent.brand.SellAgentTheme
 import com.fitron.sellagent.companion.ui.CallsScreen
+import com.fitron.sellagent.companion.ui.CompanionLiveCall
 import com.fitron.sellagent.companion.ui.EmergencyScreen
+import com.fitron.sellagent.companion.ui.HomeScreen
+import com.fitron.sellagent.companion.ui.ManagedOnPcScreen
+import com.fitron.sellagent.companion.ui.MoreScreen
 import com.fitron.sellagent.companion.ui.SettingsScreen
-import com.fitron.sellagent.companion.ui.StatusScreen
 import com.fitron.sellagent.core.core
+import com.fitron.sellagent.core.ui.AboutScreen
+import com.fitron.sellagent.core.ui.DiagnosticsScreen
+import com.fitron.sellagent.core.ui.HelpScreen
+import com.fitron.sellagent.core.ui.OnboardingScreen
 import com.fitron.sellagent.core.ui.PairingScreen
 import com.fitron.sellagent.core.ui.PermissionsScreen
+import com.fitron.sellagent.core.ui.SplashScreen
 
 object Routes {
-    const val PAIRING = "pairing"
-    const val STATUS = "status"
+    const val HOME = "home"
+    const val CONTACTS = "contacts"
+    const val CAMPAIGNS = "campaigns"
     const val CALLS = "calls"
-    const val EMERGENCY = "emergency"
+    const val MORE = "more"
+    const val CONNECTION = "connection"
+    const val DIAGNOSTICS = "diagnostics"
     const val PERMISSIONS = "permissions"
     const val SETTINGS = "settings"
+    const val HELP = "help"
+    const val ABOUT = "about"
+    const val EMERGENCY = "emergency"
+    const val LIVE = "live"
 }
 
-private data class Dest(val route: String, val label: Int, val icon: ImageVector)
+private data class Tab(val route: String, val label: Int, val icon: ImageVector)
 
 private val tabs = listOf(
-    Dest(Routes.STATUS, R.string.nav_status, Icons.Filled.Home),
-    Dest(Routes.CALLS, R.string.nav_calls, Icons.Filled.Call),
-    Dest(Routes.EMERGENCY, R.string.nav_emergency, Icons.Filled.Warning),
-    Dest(Routes.PERMISSIONS, R.string.nav_permissions, Icons.Filled.Lock),
-    Dest(Routes.SETTINGS, R.string.nav_settings, Icons.Filled.Settings),
+    Tab(Routes.HOME, R.string.nav_home, Icons.Filled.Home),
+    Tab(Routes.CONTACTS, R.string.nav_contacts, Icons.Filled.Person),
+    Tab(Routes.CAMPAIGNS, R.string.nav_campaigns, Icons.Filled.DateRange),
+    Tab(Routes.CALLS, R.string.nav_calls, Icons.Filled.Call),
+    Tab(Routes.MORE, R.string.nav_more, Icons.Filled.Menu),
 )
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { SellAgentTheme { CompanionNav() } }
+        setContent { CompanionRoot() }
     }
+}
+
+@Composable
+private fun CompanionRoot() {
+    val core = LocalContext.current.core()
+    var splashDone by rememberSaveable { mutableStateOf(false) }
+    val onboardingDone by core.uiPrefs.onboardingDone.collectAsStateWithLifecycle()
+    when {
+        !splashDone -> SplashScreen { splashDone = true }
+        !onboardingDone -> SellAgentTheme { OnboardingScreen(R.string.onb_1_body) { core.uiPrefs.setOnboardingDone(true) } }
+        else -> SellAgentTheme { CompanionNav() }
+    }
+}
+
+fun NavHostController.goTab(route: String) = navigate(route) {
+    popUpTo(graph.findStartDestination().id) { saveState = true }
+    launchSingleTop = true
+    restoreState = true
 }
 
 @Composable
 private fun CompanionNav() {
     val navController = rememberNavController()
-    val core = LocalContext.current.core()
-    val pairing by core.store.pairing.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val calls = (context.applicationContext as CompanionApp).calls
+    val active by calls.active.collectAsStateWithLifecycle()
+    val queue by calls.queue.collectAsStateWithLifecycle()
     val backStack by navController.currentBackStackEntryAsState()
     val currentDestination = backStack?.destination
-    val pending by (LocalContext.current.applicationContext as CompanionApp).calls.pending.collectAsStateWithLifecycle()
+    val onLive = currentDestination?.route == Routes.LIVE
+
+    // Show the dark live-call screen as soon as a dialed job exists; return when it ends.
+    LaunchedEffect(active?.callJobId) {
+        if (active != null && navController.currentDestination?.route != Routes.LIVE) navController.navigate(Routes.LIVE) { launchSingleTop = true }
+        if (active == null && navController.currentDestination?.route == Routes.LIVE) navController.popBackStack()
+    }
+
     Scaffold(
-        containerColor = BrandColors.Background,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(containerColor = BrandColors.Surface, contentColor = BrandColors.TextPrimary) {
-                tabs.forEach { d ->
-                    val selected = currentDestination?.hierarchy?.any { it.route == d.route } == true
-                    val label = stringResource(d.label)
-                    val highlight = d.route == Routes.CALLS && pending != null
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            navController.navigate(d.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(d.icon, contentDescription = label, tint = if (highlight && !selected) BrandColors.Warning else androidx.compose.ui.graphics.Color.Unspecified) },
-                        label = { Text(label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = BrandColors.OnGold,
-                            selectedTextColor = BrandColors.Gold,
-                            indicatorColor = if (d.route == Routes.EMERGENCY) BrandColors.EmergencyStop else BrandColors.Gold,
-                            unselectedIconColor = BrandColors.TextSecondary,
-                            unselectedTextColor = BrandColors.TextSecondary,
-                        ),
-                    )
+            if (!onLive) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface) {
+                    tabs.forEach { t ->
+                        val selected = currentDestination?.hierarchy?.any { it.route == t.route } == true
+                        val label = stringResource(t.label)
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = { navController.goTab(t.route) },
+                            icon = {
+                                Icon(
+                                    t.icon,
+                                    contentDescription = if (t.route == Routes.CALLS && queue.isNotEmpty()) "$label (${queue.size})" else label,
+                                    tint = if (t.route == Routes.CALLS && queue.isNotEmpty() && !selected) BrandColors.Warning else androidx.compose.ui.graphics.Color.Unspecified,
+                                )
+                            },
+                            label = { Text(if (t.route == Routes.CALLS && queue.isNotEmpty()) "$label (${queue.size})" else label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = BrandColors.Gold,
+                                selectedTextColor = BrandColors.GoldDark,
+                                indicatorColor = BrandColors.ChipWarningBg,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
+                        )
+                    }
                 }
             }
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            NavHost(navController = navController, startDestination = if (pairing == null) Routes.PAIRING else Routes.STATUS) {
-                composable(Routes.PAIRING) { PairingScreen(appLabel = stringResource(R.string.app_short_label)) }
-                composable(Routes.STATUS) { StatusScreen(onPair = { navController.navigate(Routes.PAIRING) }) }
+            NavHost(navController = navController, startDestination = Routes.HOME) {
+                composable(Routes.HOME) { HomeScreen(navigate = { navController.navigate(it) }) }
+                composable(Routes.CONTACTS) { ManagedOnPcScreen(R.string.contacts_title, R.string.contacts_empty) }
+                composable(Routes.CAMPAIGNS) { ManagedOnPcScreen(R.string.campaigns_title, R.string.campaigns_empty) }
                 composable(Routes.CALLS) { CallsScreen() }
-                composable(Routes.EMERGENCY) { EmergencyScreen() }
+                composable(Routes.MORE) { MoreScreen(navigate = { navController.navigate(it) }) }
+                composable(Routes.CONNECTION) { PairingScreen(appLabel = stringResource(R.string.app_short_label)) }
+                composable(Routes.DIAGNOSTICS) { DiagnosticsScreen() }
                 composable(Routes.PERMISSIONS) { PermissionsScreen() }
-                composable(Routes.SETTINGS) { SettingsScreen(onPair = { navController.navigate(Routes.PAIRING) }) }
+                composable(Routes.SETTINGS) { SettingsScreen(onPair = { navController.navigate(Routes.CONNECTION) }) }
+                composable(Routes.HELP) { HelpScreen() }
+                composable(Routes.ABOUT) { AboutScreen(R.string.onb_1_body) }
+                composable(Routes.EMERGENCY) { EmergencyScreen() }
+                composable(Routes.LIVE) { CompanionLiveCall(onClose = { navController.popBackStack() }) }
             }
         }
     }

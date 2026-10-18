@@ -80,7 +80,7 @@ class MainWindow(QMainWindow):
                 tabs = QTabWidget()
                 tabs.setDocumentMode(True)
                 for k in keys:
-                    tabs.addTab(self.screens[k], self.screens[k].title)
+                    tabs.addTab(self.screens[k], self.screens[k].title.replace("&", "&&"))
                 tabs.currentChanged.connect(lambda idx, t=tabs: self._tab_changed(t, idx))
                 pl.addWidget(tabs)
                 self.group_tabs[nav_key] = tabs

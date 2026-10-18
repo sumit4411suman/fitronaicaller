@@ -11,6 +11,7 @@ from sellagent_desktop.widgets import Card, DataTable, KeyValueGrid, button, cap
 
 class ModelManagerScreen(BaseScreen):
     key, title = "models", "AI model manager"
+    scrollable = True
     subtitle = "Local-only inference (Ollama / llama.cpp, faster-whisper, Piper). Nothing downloads without your explicit acknowledgement."
 
     def build(self) -> None:

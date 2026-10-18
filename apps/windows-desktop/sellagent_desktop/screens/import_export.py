@@ -12,6 +12,7 @@ from sellagent_desktop.widgets import Card, DataTable, button, caption, combo, c
 
 class ImportExportScreen(BaseScreen):
     key, title = "import_export", "Import / export"
+    scrollable = True
     subtitle = "Import contacts from CSV or XLSX. Rows are validated and de-duplicated by phone number before anything is written."
 
     def build(self) -> None:

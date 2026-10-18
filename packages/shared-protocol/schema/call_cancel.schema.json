@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "call_job_id": {
+      "title": "Call Job Id",
+      "type": "string"
+    },
+    "reason": {
+      "default": "operator_cancel",
+      "maxLength": 200,
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "call_job_id"
+  ],
+  "title": "CancelRequest",
+  "type": "object",
+  "x-protocol-version": "1.0"
+}

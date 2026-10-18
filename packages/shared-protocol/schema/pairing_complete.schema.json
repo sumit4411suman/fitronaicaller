@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Sent once the Windows user approves. Token is shown exactly once.",
+  "properties": {
+    "backend_name": {
+      "title": "Backend Name",
+      "type": "string"
+    },
+    "device_id": {
+      "title": "Device Id",
+      "type": "string"
+    },
+    "device_token": {
+      "title": "Device Token",
+      "type": "string"
+    },
+    "protocol_version": {
+      "default": "1.0",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "token_expires_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Token Expires At"
+    }
+  },
+  "required": [
+    "device_id",
+    "device_token",
+    "backend_name"
+  ],
+  "title": "PairingComplete",
+  "type": "object",
+  "x-protocol-version": "1.0"
+}

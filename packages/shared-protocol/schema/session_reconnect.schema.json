@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "device_id": {
+      "title": "Device Id",
+      "type": "string"
+    },
+    "last_received_message_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Received Message Id"
+    },
+    "pending_events": {
+      "default": 0,
+      "title": "Pending Events",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "device_id"
+  ],
+  "title": "ReconnectRequest",
+  "type": "object",
+  "x-protocol-version": "1.0"
+}

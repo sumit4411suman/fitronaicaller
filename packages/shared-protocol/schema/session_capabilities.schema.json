@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Capabilities positively reported by the Android app.\n\nEverything defaults to False. The backend's release gate for autonomous\ncalling requires ``remote_audio_capture_verified`` and\n``audio_injection_verified`` to be True *and* backed by a passing real-device\naudio test record. The companion app only sets them from stored diagnostic\nresults, never from assumptions.",
+  "properties": {
+    "android_sdk_int": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Android Sdk Int"
+    },
+    "app_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "App Version"
+    },
+    "audio_injection_verified": {
+      "default": false,
+      "title": "Audio Injection Verified",
+      "type": "boolean"
+    },
+    "can_control_audio_route": {
+      "default": false,
+      "title": "Can Control Audio Route",
+      "type": "boolean"
+    },
+    "can_end_calls": {
+      "default": false,
+      "title": "Can End Calls",
+      "type": "boolean"
+    },
+    "can_place_calls": {
+      "default": false,
+      "title": "Can Place Calls",
+      "type": "boolean"
+    },
+    "device_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Device Model"
+    },
+    "is_default_dialer": {
+      "default": false,
+      "title": "Is Default Dialer",
+      "type": "boolean"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    },
+    "remote_audio_capture_verified": {
+      "default": false,
+      "title": "Remote Audio Capture Verified",
+      "type": "boolean"
+    },
+    "reports_call_state": {
+      "default": false,
+      "title": "Reports Call State",
+      "type": "boolean"
+    },
+    "supports_foreground_service": {
+      "default": false,
+      "title": "Supports Foreground Service",
+      "type": "boolean"
+    },
+    "wifi_calling_active": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Wifi Calling Active"
+    }
+  },
+  "title": "DeviceCapabilities",
+  "type": "object",
+  "x-protocol-version": "1.0"
+}

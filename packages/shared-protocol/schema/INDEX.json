@@ -1,0 +1,24 @@
+{
+  "protocol_version": "1.0",
+  "messages": [
+    "Envelope",
+    "ack",
+    "audio_test.event",
+    "audio_test.result",
+    "audio_test.start",
+    "call.cancel",
+    "call.request",
+    "call.state",
+    "error",
+    "pairing.complete",
+    "pairing.request",
+    "pairing.response",
+    "safety.emergency_stop",
+    "safety.emergency_stop_ack",
+    "session.capabilities",
+    "session.heartbeat",
+    "session.heartbeat_ack",
+    "session.reconnect",
+    "session.reconnect_ack"
+  ]
+}

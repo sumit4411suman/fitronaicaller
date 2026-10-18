@@ -149,6 +149,11 @@ def check(
                 res.reasons.append("paired device has not reported call-placement capability")
             if mode == "autonomous" and not (caps.get("remote_audio_capture_verified") and caps.get("audio_injection_verified")):
                 res.reasons.append("paired device has not verified two-way call audio")
+    elif route == "media_gateway":
+        if not s["gateway.enabled"]:
+            res.reasons.append("external audio gateway is not configured (Settings: gateway.*)")
+        if mode == "autonomous" and not s["release_gate.autonomous_calling_allowed"]:
+            res.reasons.append("autonomous mode blocked by release gate (no real-device two-way audio evidence)")
     elif route != "manual":
         res.reasons.append(f"unsupported calling route {route!r}")
 

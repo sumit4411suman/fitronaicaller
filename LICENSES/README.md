@@ -71,3 +71,18 @@ Inventory date: 2026-10-18. SELL AGENT itself is proprietary (see pyproject.toml
 
 - `LICENSES/LGPL-3.0.txt`, `LICENSES/GPL-3.0.txt`, `LICENSES/GPL-2.0.txt` (Qt choice of licence), `LICENSES/Apache-2.0.txt`, `LICENSES/MIT-notices.txt` (aggregated), `LICENSES/BSD-notices.txt`, `LICENSES/numpy-bundled.txt`, `LICENSES/piper-voices/<voice>/MODEL_CARD.md`.
 - A "Third-party notices" dialog in the desktop app that renders this folder.
+
+## Evaluated telephony-bridge projects (no code copied)
+
+These were studied for the calling architecture (`docs/TELEPHONY_BRIDGE_EVALUATION.md`). **None of their source is
+incorporated into SELL AGENT.** Where an idea was adopted it is a public protocol or design pattern, re-implemented.
+
+| Project | Licence | How it relates to us |
+|---|---|---|
+| sidinsearch/AgentCall | AGPL-3.0-only (NOTICE flags unresolved upstream provenance) | Reference only. AGPL + the privileged/root model make its code unusable here; **not copied**. |
+| OriginStackHQ/GSM2SIP | **No LICENSE file** (all rights reserved) | GSM↔SIP gateway *idea* reused, re-implemented from Asterisk's public interfaces; **code not copied** (no licence grants permission). |
+| koreapyj/asterisk-chan-modemmanager | GPL-2.0-only | Runs as a **separate Asterisk process**; SELL AGENT connects over a loopback AudioSocket socket, so GPL does not reach our backend. **Not linked, not copied.** If an Asterisk bundle is ever redistributed it keeps its own licence + corresponding source. |
+| ictinnovations/asterisk-ai-voice-agent | MIT | We reuse the **AudioSocket wire protocol** (a public Asterisk format) and its outbound-pacing lesson, re-implemented in `telecom/audiosocket.py`. We did **not** adopt its sidecar or its paid cloud providers. MIT attribution noted here. |
+
+AudioSocket is a documented Asterisk protocol (`app_audiosocket`); a clean-room re-implementation of a wire
+format carries no licence obligation.

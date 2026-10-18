@@ -54,7 +54,7 @@ def list_jobs(db: Session = Depends(get_db), status: str | None = None, limit: i
 @router.get("/routes")
 def routes(request: Request) -> dict:
     st = request.app.state
-    return {"manual": st.telecom["manual"].capabilities().__dict__, "android_companion": st.telecom["android_companion"].capabilities().__dict__}
+    return {k: st.telecom[k].capabilities().__dict__ for k in ("manual", "android_companion", "media_gateway") if k in st.telecom}
 
 
 @router.post("", response_model=CallJobOut, status_code=201)

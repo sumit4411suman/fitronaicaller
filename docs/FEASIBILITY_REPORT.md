@@ -8,6 +8,19 @@ system access, an authorised Samsung OEM integration or a documented Jio carrier
 available to this project. In line with the specification, no SIP number and no acoustic speaker-to-microphone relay is
 used as a substitute. Development continues on everything that does not depend on that audio path.
 
+**Galaxy S25 specifically: still NO-GO (2026-10-18 re-confirmation).** The S25 cannot be made a privileged app
+without rooting, and One UI 8 removed the OEM-unlocking path, so rooting is not available either. Full audit:
+`docs/S25_COMPATIBILITY.md`. The two rooted-phone projects re-evaluated (AgentCall, GSM2SIP) both require Magisk
+root and a Qualcomm `incall_music` path and both mark Samsung Exynos "no path"; neither supports the S25.
+
+**Recommended path for autonomous calling that keeps the Jio number: a separate, qualified USB cellular modem +
+Asterisk (not the S25), feeding SELL AGENT's local AI over the AudioSocket media gateway** — open-source, local,
+no paid API. It is a *candidate*, gated on one unproven fact: that the modem does **VoLTE voice on Jio with USB
+audio**, which must be verified **before any purchase** (`docs/JIO_MODEM_FEASIBILITY.md`,
+`docs/CALLING_ARCHITECTURE.md`, `docs/TELEPHONY_BRIDGE_EVALUATION.md`). The software seam is implemented and
+tested with simulated audio (`telecom/media_gateway.py`, `telecom/audiosocket.py`) and stays behind the
+real-device evidence gate.
+
 ## 1. Feasibility tests A-G
 
 The diagnostic app (`apps/android-audio-diagnostic`, 18-step plan) records each step on the S25 and sends it to the PC,
@@ -64,11 +77,12 @@ shows that AI telephone calling is unavailable.
 
 | Area | Implemented | Tested here | Remaining / unverified |
 |---|---|---|---|
-| Android feasibility app (18 steps incl. F, G) | Yes | CI build | Real S25 rerun of all steps |
+| Android feasibility app (18 device steps incl. F, G; backend plan adds 5 full-loop steps = 23) | Yes | CI build | Real S25 rerun of all steps |
 | Android companion (pairing, call control, state, routing, emergency stop) | Yes | CI build; pairing and call states observed by operator | Formal confirmation rows |
 | Local voice pipeline: VAD (Silero v6 or energy) -> faster-whisper -> conversation engine -> Piper, with stage timings, cancellation, barge-in detection, audio validation | Yes (`sellagent_speech/pipeline.py`, `POST /speech/pipeline-test`) | Unit and API tests with fake models; real Silero model tested | Real Whisper/Piper runs on the Windows PC (`tests/voice`, opt-in); no measured WER/latency yet |
 | Hindi / English voice suite | Yes (`tests/voice`) | Skips without models | Run on the PC with models and consenting recordings |
 | Autonomous conversation loop (`sellagent_backend/autonomy`): barge-in, language following, silence and poor-recognition fallback, opt-out, emergency stop | Yes, but it runs only on a verified digital call-audio path; real routes return none | Simulated path tests | Needs a verified path, which does not exist for Android/Jio |
+| Modular audio gateway + Asterisk AudioSocket server (`telecom/media_gateway.py`, `telecom/audiosocket.py`): documented `MediaTransport`, PCM path with bounded jitter buffer/backpressure, loopback-only, fail-closed gate, `media_gateway` route | Yes | `tests/integration/test_media_gateway.py`, `test_audiosocket.py` (simulated audio, wire protocol, gating, full conversation) | Real modem + Asterisk + a verified Jio VoLTE route; see JIO_MODEM_FEASIBILITY |
 | AI sales persona (female "Priya", Hindi feminine forms, cue-aware replies, call memory, voice pacing) | Yes (`docs/PERSONA.md`) | Unit, API and UI tests in script mode | Voice naturalness and latency on the real PC; LLM-mode quality |
 | Conversation engine, guardrails, opt-out, consent, eligibility, CRM, campaigns, reports | Yes | Automated tests (see TEST_REPORT.md) | Human-assisted use only |
 | Secure Windows-Android link (pairing code + TLS fingerprint pinning, authenticated WebSocket) | Yes | Automated tests; real pairing observed on the S25 | n/a |

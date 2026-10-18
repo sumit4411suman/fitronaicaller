@@ -77,6 +77,16 @@ DEFAULTS: dict[str, Any] = {
     "backup.retention_count": 10,
     "release_gate.autonomous_calling_allowed": False,
     "release_gate.evidence": None,
+    # External audio gateway (calling Approach C): an independently qualified route plugged into the media-gateway
+    # adapter. OFF by default; turning it on never bypasses the release gate - real-device evidence is still required.
+    "gateway.enabled": False,
+    "gateway.kind": "sip",  # sip | gateway_phone
+    "gateway.bind_host": "127.0.0.1",  # loopback only; must never be a LAN/0.0.0.0 address
+    "gateway.sip_host": "127.0.0.1",
+    "gateway.sip_port": 5060,
+    "gateway.audiosocket_port": 9092,  # Asterisk app_audiosocket connects here (loopback) to bridge call audio
+    "gateway.codec": "g722",  # g722 | pcmu | pcma
+    "gateway.caller_id": "",  # the verified calling identity the gateway presents (E.164); informational
 }
 
 READ_ONLY_KEYS = {"release_gate.autonomous_calling_allowed", "release_gate.evidence"}
@@ -145,9 +155,14 @@ def set_value(session: Session, key: str, value: Any, *, actor: str = "operator"
     if key == "calling.default_mode" and value not in {"human_assisted", "autonomous"}:
         raise SettingsError("calling.default_mode must be human_assisted or autonomous")
     choices = {"persona.gender": {"female", "male"}, "persona.style": {"warm", "concise", "formal"}, "persona.response_length": {"short", "normal"},
-               "persona.default_language": {"auto", "hi", "en"}, "persona.handoff": {"callback", "operator"}}
+               "persona.default_language": {"auto", "hi", "en"}, "persona.handoff": {"callback", "operator"},
+               "gateway.kind": {"sip", "gateway_phone"}, "gateway.codec": {"g722", "pcmu", "pcma"}}
     if key in choices and value not in choices[key]:
         raise SettingsError(f"{key} must be one of {', '.join(sorted(choices[key]))}")
+    if key == "gateway.bind_host" and value not in {"127.0.0.1", "::1", "localhost"}:
+        raise SettingsError("gateway.bind_host must be loopback (127.0.0.1, ::1 or localhost): the audio gateway is never exposed on the network")
+    if key in ("gateway.sip_port", "gateway.audiosocket_port") and not 1 <= value <= 65535:
+        raise SettingsError(f"{key} must be a valid port (1-65535)")
     if key == "persona.name" and not (1 <= len(value.strip()) <= 40):
         raise SettingsError("persona.name must be 1-40 characters")
     if key in ("persona.greeting_en", "persona.greeting_hi", "persona.closing_en", "persona.closing_hi", "persona.objectives") and len(value) > 500:

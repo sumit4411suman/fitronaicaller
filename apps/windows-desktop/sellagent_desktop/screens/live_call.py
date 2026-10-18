@@ -50,6 +50,7 @@ class LiveCallScreen(BaseScreen):
 
         # ---- left: queue
         left = QWidget()
+        left.setMinimumWidth(230)
         ll = QVBoxLayout(left)
         ll.setContentsMargins(0, 0, 0, 0)
         qc = Card("Queue")
@@ -162,6 +163,7 @@ class LiveCallScreen(BaseScreen):
 
         # ---- right: transcript / AI notes / device
         right = QWidget()
+        right.setMinimumWidth(320)
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
         self.tabs = QTabWidget()
@@ -190,7 +192,8 @@ class LiveCallScreen(BaseScreen):
         self.tabs.addTab(dev, "Device events")
         rl.addWidget(self.tabs, 1)
         split.addWidget(right)
-        split.setSizes([260, 640, 420])
+        split.setSizes([250, 620, 360])
+        split.setChildrenCollapsible(False)
         self.root.addWidget(split, 1)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)

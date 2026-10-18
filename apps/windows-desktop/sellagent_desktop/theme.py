@@ -34,11 +34,13 @@ QFrame[role="card-dark"] QLabel[role="caption"] { color: #B8B2A0; }
 QFrame[role="card-dark"] QLabel[role="success"] { color: #4CAF50; }
 QFrame[role="card-dark"] QLabel[role="danger"] { color: #E05252; }
 QFrame[role="card-dark"] QLabel[role="warning"] { color: #E6A23C; }
-QFrame#Header QLabel { background: transparent; }
+QFrame#Header QLabel[role="caption"] { background: transparent; }
 QFrame#Header QPushButton[role="danger"] { min-height: 30px; }
 QPushButton[role="chip"] { background-color: #FFFFFF; color: #6B665A; border: 1px solid #E6E2D6; border-radius: 14px; padding: 4px 12px; }
 QPushButton[role="chip"]:checked { background-color: #D4AF37; color: #0B0B0B; border-color: #D4AF37; font-weight: 700; }
 QSplashScreen { background-color: #0B0B0B; }
+QPushButton[role="success"]:disabled, QPushButton[role="danger"]:disabled, QPushButton[role="secondary"]:disabled { background-color: #F0EEE6; color: #A8A396; border: 1px solid #E6E2D6; }
+QPushButton[role="quick"] { min-height: 44px; }
 """
 
 

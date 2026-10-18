@@ -30,8 +30,30 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import com.fitron.sellagent.protocol.ProtocolJson
+import java.io.File
 
 data class PendingCall(val request: CallRequest, val envelopeId: String, val receivedAtMs: Long, val expiresAtMs: Long)
+
+/** Local history of one call job, built only from call.state events this phone sent. Persisted in files/call_logs.json. */
+@Serializable
+data class CallLogEntry(
+    val callJobId: String,
+    val number: String,
+    val displayName: String? = null,
+    val receivedAtMs: Long,
+    val dialedAtMs: Long? = null,
+    val connectedAtMs: Long? = null,
+    val endedAtMs: Long? = null,
+    val finalState: String = CallState.REQUESTED,
+    val events: List<String> = emptyList(),
+) {
+    /** Talk time from the first ACTIVE/OFFHOOK to the end; null when the call never connected. */
+    val durationSeconds: Long?
+        get() = if (connectedAtMs != null) (((endedAtMs ?: System.currentTimeMillis()) - connectedAtMs) / 1000).coerceAtLeast(0) else null
+}
 
 data class ActiveJob(val callJobId: String, val number: String, val dialedAtMs: Long, val lastState: String, val lastSource: String)
 
@@ -47,8 +69,13 @@ data class ActiveJob(val callJobId: String, val number: String, val dialedAtMs: 
  *  call.state    -> one event per TelephonyCallback / InCallService state change, tagged with the call_job_id.
  */
 class CallController(private val context: Context, private val core: CoreContainer) {
-    private val _pending = MutableStateFlow<PendingCall?>(null)
-    val pending: StateFlow<PendingCall?> = _pending
+    private val _queue = MutableStateFlow<List<PendingCall>>(emptyList())
+    /** Pending call.requests, oldest first. Each needs an operator tap. */
+    val queue: StateFlow<List<PendingCall>> = _queue
+
+    private val logFile = File(context.filesDir, "call_logs.json")
+    private val _logs = MutableStateFlow(loadLogs())
+    val logs: StateFlow<List<CallLogEntry>> = _logs
 
     private val _active = MutableStateFlow<ActiveJob?>(null)
     val active: StateFlow<ActiveJob?> = _active
@@ -59,7 +86,7 @@ class CallController(private val context: Context, private val core: CoreContain
     private val _events = MutableStateFlow<List<String>>(emptyList())
     val events: StateFlow<List<String>> = _events
 
-    private var expiryJob: Job? = null
+    private val expiryJobs = HashMap<String, Job>()
     private var lastCoarse: String? = null
     private var lastDetailed: String? = null
 
@@ -121,7 +148,9 @@ class CallController(private val context: Context, private val core: CoreContain
             req.authorizationToken.length < 16 -> "invalid_authorization" to "authorization_token missing"
             ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED ->
                 "call_phone_not_granted" to "CALL_PHONE permission not granted on the device"
-            _pending.value != null || _active.value != null -> "busy" to "device already has a pending or active call job"
+            core.uiPrefs.queuePaused.value -> "queue_paused" to "call queue paused on the device by the operator"
+            _queue.value.any { it.request.callJobId == req.callJobId } -> "duplicate_job" to "call job already queued"
+            _queue.value.size >= MAX_QUEUE -> "queue_full" to "device queue is full ($MAX_QUEUE)"
             else -> null
         }
         if (refusal != null) {
@@ -132,33 +161,28 @@ class CallController(private val context: Context, private val core: CoreContain
         }
         core.socket.sendAck(env.messageId)
         requireNotNull(expiresAt)
-        _pending.value = PendingCall(req, env.messageId, now, expiresAt)
-        _hangupInstruction.value = null
+        _queue.value = _queue.value + PendingCall(req, env.messageId, now, expiresAt)
+        upsertLog(req.callJobId) { it ?: CallLogEntry(req.callJobId, req.e164Number, req.displayName, now) }
         sendState(req.callJobId, CallState.REQUESTED, CallStateSource.APP, detail = "shown to operator; waiting for tap")
         ConnectionForegroundService.start(context, context.getString(R.string.fgs_reason_call_expected))
-        log("call.request ${req.callJobId.take(8)} for ${mask(req.e164Number)} (${req.mode}) shown to operator")
-        expiryJob?.cancel()
-        expiryJob = core.scope.launch {
+        log("call.request ${req.callJobId.take(8)} for ${mask(req.e164Number)} (${req.mode}) queued for operator")
+        expiryJobs[req.callJobId]?.cancel()
+        expiryJobs[req.callJobId] = core.scope.launch {
             delay((expiresAt - now).coerceAtLeast(0))
-            val p = _pending.value
-            if (p != null && p.request.callJobId == req.callJobId) {
-                _pending.value = null
+            if (removeFromQueue(req.callJobId) != null) {
                 sendState(req.callJobId, CallState.REJECTED, CallStateSource.APP, detail = "operator did not dial before expires_at")
                 log("call.request ${req.callJobId.take(8)} expired without a tap")
-                if (_active.value == null) ConnectionForegroundService.stop(context)
+                stopServiceIfIdle()
             }
         }
     }
 
     private fun onCancel(env: Envelope) {
         val cancel = runCatching { env.payloadAs<CancelRequest>() }.getOrNull() ?: return
-        val p = _pending.value
-        if (p != null && p.request.callJobId == cancel.callJobId) {
-            _pending.value = null
-            expiryJob?.cancel()
+        if (removeFromQueue(cancel.callJobId) != null) {
             sendState(cancel.callJobId, CallState.REJECTED, CallStateSource.APP, detail = "cancelled before dialing: ${cancel.reason}")
-            log("call.cancel for pending ${cancel.callJobId.take(8)}: ${cancel.reason}")
-            if (_active.value == null) ConnectionForegroundService.stop(context)
+            log("call.cancel for queued ${cancel.callJobId.take(8)}: ${cancel.reason}")
+            stopServiceIfIdle()
             return
         }
         val a = _active.value
@@ -184,12 +208,14 @@ class CallController(private val context: Context, private val core: CoreContain
 
     // ------------------------------------------------------------------ operator actions
 
-    /** Operator tapped Dial on the pending card. Returns a user-visible outcome string. */
-    fun dial(): String {
-        val p = _pending.value ?: return context.getString(R.string.calls_no_pending)
+    /** Operator tapped Dial on a queue row (or the first row when [callJobId] is null). Returns a user-visible outcome. */
+    fun dial(callJobId: String? = null): String {
+        val p = (if (callJobId == null) _queue.value.firstOrNull() else _queue.value.firstOrNull { it.request.callJobId == callJobId })
+            ?: return context.getString(R.string.calls_no_pending)
         if (emergencyStopActive) return context.getString(R.string.call_emergency_blocked)
+        if (_active.value != null || core.inCall) return context.getString(R.string.calls_busy_in_call)
         if (System.currentTimeMillis() > p.expiresAtMs) {
-            _pending.value = null
+            removeFromQueue(p.request.callJobId)
             sendState(p.request.callJobId, CallState.REJECTED, CallStateSource.APP, detail = "expired when operator tapped")
             return context.getString(R.string.calls_expired)
         }
@@ -201,9 +227,9 @@ class CallController(private val context: Context, private val core: CoreContain
             lastCoarse = null
             lastDetailed = null
             tm.placeCall(Uri.fromParts("tel", p.request.e164Number, null), Bundle())
-            expiryJob?.cancel()
-            _pending.value = null
+            removeFromQueue(p.request.callJobId)
             _active.value = ActiveJob(p.request.callJobId, p.request.e164Number, System.currentTimeMillis(), CallState.DIALING, CallStateSource.APP)
+            upsertLog(p.request.callJobId) { (it ?: CallLogEntry(p.request.callJobId, p.request.e164Number, p.request.displayName, p.receivedAtMs)).copy(dialedAtMs = System.currentTimeMillis()) }
             sendState(p.request.callJobId, CallState.DIALING, CallStateSource.APP, detail = "TelecomManager.placeCall issued by operator tap")
             p.request.requestedRoute?.let { route ->
                 core.scope.launch {
@@ -217,20 +243,36 @@ class CallController(private val context: Context, private val core: CoreContain
             context.getString(R.string.call_dial_result_ok)
         } catch (e: Exception) {
             sendState(p.request.callJobId, CallState.FAILED, CallStateSource.APP, cause = e.javaClass.simpleName, detail = e.message)
-            _pending.value = null
+            removeFromQueue(p.request.callJobId)
             log("placeCall failed: ${e.javaClass.simpleName}")
             "${e.javaClass.simpleName}: ${e.message}"
         }
     }
 
-    /** Operator declined the pending request. */
-    fun decline(reason: String) {
-        val p = _pending.value ?: return
-        _pending.value = null
-        expiryJob?.cancel()
+    /** Operator declined a queued request. */
+    fun decline(callJobId: String, reason: String) {
+        val p = removeFromQueue(callJobId) ?: return
         sendState(p.request.callJobId, CallState.REJECTED, CallStateSource.APP, detail = "operator declined: $reason")
         log("operator declined ${p.request.callJobId.take(8)}")
-        if (_active.value == null) ConnectionForegroundService.stop(context)
+        stopServiceIfIdle()
+    }
+
+    /** Pausing refuses NEW requests with error queue_paused; already queued rows stay until dialed/declined/expired. */
+    fun setQueuePaused(paused: Boolean) {
+        core.uiPrefs.setQueuePaused(paused)
+        log(if (paused) "queue paused by operator" else "queue resumed by operator")
+    }
+
+    /** Toggle speaker <-> earpiece for the current call; returns the API outcome. */
+    fun toggleSpeaker(): String {
+        val target = if (AudioRouting.currentRoute(context) == com.fitron.sellagent.protocol.AudioRoute.SPEAKER) {
+            com.fitron.sellagent.protocol.AudioRoute.EARPIECE
+        } else {
+            com.fitron.sellagent.protocol.AudioRoute.SPEAKER
+        }
+        val r = AudioRouting.setRoute(context, target)
+        log("route $target via ${r.apiUsed}: ok=${r.ok}")
+        return "${r.apiUsed}: ${if (r.ok) target else r.detail}"
     }
 
     /** Operator ends the active call (works only when our InCallService is bound). */
@@ -255,10 +297,8 @@ class CallController(private val context: Context, private val core: CoreContain
     // ------------------------------------------------------------------ helpers
 
     private fun stopEverything(reason: String) {
-        val p = _pending.value
-        if (p != null) {
-            _pending.value = null
-            expiryJob?.cancel()
+        _queue.value.toList().forEach { p ->
+            removeFromQueue(p.request.callJobId)
             sendState(p.request.callJobId, CallState.REJECTED, CallStateSource.APP, detail = "emergency stop: $reason")
         }
         val a = _active.value
@@ -276,8 +316,39 @@ class CallController(private val context: Context, private val core: CoreContain
         val a = _active.value ?: return
         _active.value = null
         _hangupInstruction.value = null
+        upsertLog(a.callJobId) { it?.copy(endedAtMs = it.endedAtMs ?: System.currentTimeMillis()) }
         log("job ${a.callJobId.take(8)} finished ($reason)")
-        if (_pending.value == null) ConnectionForegroundService.stop(context)
+        stopServiceIfIdle()
+    }
+
+    private fun stopServiceIfIdle() {
+        if (_queue.value.isEmpty() && _active.value == null) ConnectionForegroundService.stop(context)
+    }
+
+    private fun removeFromQueue(callJobId: String): PendingCall? {
+        val p = _queue.value.firstOrNull { it.request.callJobId == callJobId } ?: return null
+        _queue.value = _queue.value.filterNot { it.request.callJobId == callJobId }
+        expiryJobs.remove(callJobId)?.cancel()
+        return p
+    }
+
+    @Synchronized
+    private fun upsertLog(callJobId: String, f: (CallLogEntry?) -> CallLogEntry?) {
+        val list = _logs.value.toMutableList()
+        val idx = list.indexOfFirst { it.callJobId == callJobId }
+        val updated = f(if (idx >= 0) list[idx] else null) ?: return
+        if (idx >= 0) list[idx] = updated else list.add(0, updated)
+        _logs.value = list.take(200)
+        runCatching { logFile.writeText(ProtocolJson.encodeToString(ListSerializer(CallLogEntry.serializer()), _logs.value)) }
+    }
+
+    private fun loadLogs(): List<CallLogEntry> = runCatching {
+        if (logFile.exists()) ProtocolJson.decodeFromString(ListSerializer(CallLogEntry.serializer()), logFile.readText()) else emptyList()
+    }.getOrDefault(emptyList())
+
+    fun clearLogs() {
+        _logs.value = emptyList()
+        runCatching { logFile.delete() }
     }
 
     private fun sendState(callJobId: String, state: String, source: String, route: String? = null, cause: String? = null, detail: String? = null) {
@@ -290,6 +361,16 @@ class CallController(private val context: Context, private val core: CoreContain
             detail = detail?.take(300),
         )
         core.socket.send(Envelope.of(MessageType.CALL_STATE, ev, CallStateEvent.serializer()), durable = true)
+        val nowMs = System.currentTimeMillis()
+        val stamp = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+        upsertLog(callJobId) { e ->
+            e?.copy(
+                finalState = state,
+                connectedAtMs = e.connectedAtMs ?: if (state == CallState.ACTIVE || state == CallState.OFFHOOK) nowMs else null,
+                endedAtMs = if (state in TERMINAL) (e.endedAtMs ?: nowMs) else e.endedAtMs,
+                events = (e.events + "$stamp $state ($source)${cause?.let { c -> " $c" } ?: ""}").takeLast(40),
+            )
+        }
         _active.value?.let { if (it.callJobId == callJobId) _active.value = it.copy(lastState = state, lastSource = source) }
     }
 
@@ -299,6 +380,9 @@ class CallController(private val context: Context, private val core: CoreContain
     }
 
     companion object {
+        const val MAX_QUEUE = 10
+        private val TERMINAL = setOf(CallState.DISCONNECTED, CallState.IDLE, CallState.FAILED, CallState.REJECTED)
+
         fun mask(number: String): String = if (number.length > 6) number.take(3) + "…" + number.takeLast(3) else "…"
     }
 }

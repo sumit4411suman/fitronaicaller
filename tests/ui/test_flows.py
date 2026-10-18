@@ -95,8 +95,10 @@ def test_manual_call_job_and_live_console(window, backend):
     wait_idle()
     live = window.screens["live_call"]
     assert live.last_error is None
-    assert live.picker.currentData() == call_id
+    assert live.call_id == call_id
     assert live.state_lbl.text() == "DIAL REQUEST"
+    assert live.mode_chip.text() == "Human-assisted: operator speaks"
+    assert not live.mute_btn.isEnabled() and "paired phone" in live.mute_btn.toolTip()
     assert live.connected_btn.isEnabled()
     live.mark_connected()
     wait_idle()
@@ -154,7 +156,7 @@ def test_knowledge_script_overrides_roundtrip(window, backend):
     with backend.client() as c:
         docs = [d for d in c.get("/api/v1/knowledge", params={"category": "general"}).json() if d["title"] == "Sales script overrides"]
         assert docs and docs[-1]["structured"]["scripts"]["greeting"]["en"].startswith("Hello")
-        assert docs[-1]["status"] == "pending"
+        assert docs[-1]["status"] == "pending_review"
 
 
 def test_audio_test_manual_record_and_gate_stays_closed(window, backend):
@@ -169,3 +171,30 @@ def test_audio_test_manual_record_and_gate_stays_closed(window, backend):
     assert row["latest"]["kind"] == "simulated"
     a.table.selectRow(a.table.rows.index(row))
     assert not a.confirm_btn.isEnabled()  # simulated rows can never be confirmed
+
+
+def test_global_search_and_filter_chips(window, backend):
+    with backend.client() as c:
+        c.post("/api/v1/contacts", json={"business_name": "Searchable Fitness", "phone": "+91 98333 44555", "lead_stage": "interested"})
+    window.search.setText("Searchable")
+    window.global_search()
+    wait_idle()
+    s = window.screens["contacts"]
+    assert window.nav_buttons["contacts"].isChecked()
+    assert [r["business_name"] for r in s.table.rows] == ["Searchable Fitness"]
+    s.search.setText("")
+    s.filter_chips["interested"].click()
+    wait_idle()
+    assert s.table.rows and all(r["lead_stage"] == "interested" for r in s.table.rows)
+    s.filter_chips["all"].click()
+    wait_idle()
+
+
+def test_profile_shows_local_operator(window):
+    window.navigate("profile")
+    wait_idle()
+    p = window.screens["profile"]
+    assert p.last_error is None
+    texts = " ".join(w.text() for w in p.findChildren(type(p.name_lbl)))
+    assert "Local operator — no cloud account" in texts
+    assert "Billing" not in texts and "Google" not in texts

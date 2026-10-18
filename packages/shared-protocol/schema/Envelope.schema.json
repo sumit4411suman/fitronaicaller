@@ -18,6 +18,7 @@
         "audio_test.result",
         "safety.emergency_stop",
         "safety.emergency_stop_ack",
+        "event",
         "error",
         "ack"
       ],

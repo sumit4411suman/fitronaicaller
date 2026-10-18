@@ -67,6 +67,7 @@ class Hub:
         self._pending_acks: dict[str, asyncio.Future[Any]] = {}
         self._outbox: dict[str, list[Envelope]] = {}  # per device, replayed on reconnect
         self.listeners: list[Callable[[Envelope], None]] = []
+        self.on_emergency_stop: list[Callable[[], object]] = []
         self._lock = asyncio.Lock()
 
     # ------------------------------------------------------------------ registry
@@ -157,6 +158,11 @@ class Hub:
         return await self.send_to_device(device_id, Envelope.of(MessageType.CALL_CANCEL, CancelRequest(call_job_id=call_job_id, reason=reason)), queue_if_offline=True)
 
     async def emergency_stop(self, *, reason: str, issued_by: str = "windows", actor: str = "operator") -> list[str]:
+        for cb in list(self.on_emergency_stop):  # cancel in-flight AI/speech work first; never blocks
+            try:
+                cb()
+            except Exception:  # noqa: BLE001
+                log.exception("emergency stop hook failed")
         with self._sf() as s:
             cancelled = call_jobs.emergency_stop(s, reason=reason, actor=actor, activate=True)
             s.commit()

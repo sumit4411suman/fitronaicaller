@@ -93,7 +93,7 @@ No keystore is committed. To ship a signed build:
 ### Manifest – Audio Feasibility Test
 
 `INTERNET`, `ACCESS_NETWORK_STATE`, `CALL_PHONE`\*, `READ_PHONE_STATE`\*, `RECORD_AUDIO`\*, `MODIFY_AUDIO_SETTINGS`,
-`POST_NOTIFICATIONS`\*, `BLUETOOTH_CONNECT`\*, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_PHONE_CALL`,
+`POST_NOTIFICATIONS`\*, `BLUETOOTH_CONNECT`\*, `FOREGROUND_SERVICE`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `FOREGROUND_SERVICE_PHONE_CALL`,
 `FOREGROUND_SERVICE_MICROPHONE`, `FOREGROUND_SERVICE_DATA_SYNC`.
 Services: `SellAgentInCallService` (`BIND_INCALL_SERVICE`, `IN_CALL_SERVICE_UI=true`),
 `ConnectionForegroundService` (`foregroundServiceType="phoneCall|microphone|dataSync"`).
@@ -101,11 +101,23 @@ Services: `SellAgentInCallService` (`BIND_INCALL_SERVICE`, `IN_CALL_SERVICE_UI=t
 ### Manifest – Companion
 
 `INTERNET`, `ACCESS_NETWORK_STATE`, `CALL_PHONE`\*, `READ_PHONE_STATE`\*, `RECORD_AUDIO`\*, `MODIFY_AUDIO_SETTINGS`,
-`POST_NOTIFICATIONS`\*, `BLUETOOTH_CONNECT`\*, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_PHONE_CALL`,
+`POST_NOTIFICATIONS`\*, `BLUETOOTH_CONNECT`\*, `FOREGROUND_SERVICE`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `FOREGROUND_SERVICE_PHONE_CALL`,
 `FOREGROUND_SERVICE_DATA_SYNC`.
 Services: `SellAgentInCallService` (as above), `ConnectionForegroundService` (`foregroundServiceType="phoneCall|dataSync"`).
 
 \* runtime permission requested from the *Permissions* screen.
+
+### Battery optimization
+
+`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` lets the *Battery optimization* screen open the system dialog
+`Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (`package:` URI), with `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`
+as fallback. **Google Play restricts this permission for store apps; these apps are sideloaded onto one operator phone,
+which is the permitted use.** The state shown everywhere (Battery screen, Permissions row, Diagnostics "Run full test",
+Troubleshooting) is the real `PowerManager.isIgnoringBatteryOptimizations(packageName)`, and every heartbeat/capabilities
+message carries it in `DeviceCapabilities.notes` as `battery_optimization_ignored=true|false|unknown`.
+Samsung additionally puts apps to sleep: **Settings › Battery › Background usage limits › Never sleeping apps › add
+SELL AGENT**, and set the app's Battery to *Unrestricted* (the screen has a button to the app's App info page,
+`ACTION_APPLICATION_DETAILS_SETTINGS`).
 
 ### Default dialer role
 
@@ -169,6 +181,10 @@ from **Settings ▸ Apps ▸ Default apps ▸ Phone app**.
   `in_reply_to` when it accepted the request for operator confirmation, or `error {code, message}` otherwise.
   The diagnostic app always replies `error code=diagnostic_app`. `call.cancel` and `safety.emergency_stop` are
   confirmed through `call.state` events / `safety.emergency_stop` (`issued_by=android`) respectively.
+* **Forward compatibility:** `MessageType.KNOWN` lists every type this build understands, including the generic
+  `event` envelope (`payload {name, data}`) used for desktop notifications, which is logged and never acked. Any other
+  unknown `type` is logged ("ignored unknown message type") and ignored – no ack, no error, no exception. Unknown payload
+  fields are ignored (`ignoreUnknownKeys`); malformed JSON is dropped via `Envelope.parseOrNull`.
 * **Backoff:** 1, 2, 4, 8, 16, 32, 60 s (+0–1 s jitter), reset after a successful connection.
 
 ---
@@ -186,6 +202,20 @@ for FITRON sales*, chips Smart / Secure / Local) and, on first launch, a three-p
 | **Diagnostics** | Rows Microphone (3-s `AudioRecord(VOICE_COMMUNICATION)` RMS dBFS, labelled near-end), Speaker (1 kHz `AudioTrack` tone accepted?), Wi-Fi calling (PROPERTY_WIFI or unknown), Audio route (current), Network latency (median of 3 pinned HTTPS pings to the PC). Gold **Run full test** runs this short self-check; values read "Not run" until measured. |
 | **Live Call** (dark) | Gold timer (from InCallService `STATE_ACTIVE`, else from the OFFHOOK transition), state label (InCallService or TelephonyCallback name), *Human-assisted* chip, route and Wi-Fi-calling chips, local notes area with the statement that no transcript exists (apps cannot access call audio), Mute / Hold / Keypad (`InCallService.setMuted`, `Call.hold/unhold`, `Call.playDtmfTone`) enabled only when InCallService is bound – otherwise disabled with an explanation, red **End call**, Emergency stop. |
 | **Help & Support / About** | Condensed operator help from this document; version, protocol 1.0, device, "no account" statement. |
+
+### Shared support screens (both apps)
+
+| Screen | What it does |
+| --- | --- |
+| **Battery optimization** | Real `isIgnoringBatteryOptimizations` state, *Allow unrestricted* (request dialog) / *Open battery settings* (fallback), battery %, Samsung "Never sleeping apps" card with an *Open App info* button. |
+| **Logs** | `AppLog`: last 1000 entries in memory plus `files/logs/app.log` (rotated to `app.log.1` at 256 KB). Connection, pairing, permission, call.state, InCallService/TelephonyCallback, emergency-stop, test and error events. Filter by minimum level (DEBUG/INFO/WARN/ERROR), *Share as text* (share sheet, with device/app header), *Clear*. Every message is sanitized: bearer tokens, `token=`/`authorization` values, long hex/secret strings and certificate fingerprints become `[redacted]`/`[fingerprint]`; phone numbers are masked to the last 4 digits (`…3210`). |
+| **Troubleshooting** | Live checks with fixes: connection (backend address + last WebSocket error → Reconnect / Pair), TLS certificate mismatch (→ Pair again), missing runtime permissions (→ Permissions), not default phone app (→ Permissions), battery optimization on (→ Battery), Wi-Fi off (→ Wi-Fi settings), emergency stop active (cleared only on the PC). *Check again*, link to Logs. |
+| **Microphone test** | 3 s `AudioRecord(VOICE_COMMUNICATION)`; live level bar, RMS and peak dBFS, quiet/clipping hints. Near-end microphone only. |
+| **Speaker test** | 1 kHz `AudioTrack` tone, then one Hindi and one English `TextToSpeech` phrase on the current output; the operator answers *Did you hear it?* Yes/No (logged). |
+| **Audio route** | Current route, `AudioManager.mode`, communication device, `getAvailableCommunicationDevices()` (API 31+), `getDevices(GET_DEVICES_OUTPUTS)`, supported routes for the current call (`CallAudioState.supportedRouteMask`, InCallService only), route buttons that report the API used. |
+
+Diagnostics links to all six. Companion: **More** lists Mic test, Speaker test, Audio route, Battery optimization,
+Troubleshooting and Logs. Audio test: the **Report** tab has a *Troubleshooting & tools* card with all of them.
 
 ### Companion (bottom navigation: Home · Contacts · Campaigns · Calls · More; gold active icon)
 
@@ -252,10 +282,12 @@ Automatic tools per step:
 * The autonomous release gate flag is not pushed to the device yet; `mode=autonomous` is always refused.
 * The release gate on the PC is opened only from operator-confirmed **real-device** `audio_test.result` rows. The
   apps never set `remote_audio_capture_verified` / `audio_injection_verified`.
+* Samsung's "Never sleeping apps" list cannot be changed by an app; the operator must set it (the Battery screen explains how).
 * Contacts and Campaigns are not sent to the phone in protocol 1.0; the Companion tabs are empty "Managed on the PC" views.
 * Call notes stay on the phone (protocol 1.0 has no message for them).
 * Build status: these projects were written in an environment without the Android SDK. The pure-Kotlin parts
-  (protocol serialization, outbox, fingerprint pinning) were compiled and unit-tested on the JVM; the Android parts are
+  (protocol serialization including unknown-type/`event` tolerance, outbox, fingerprint pinning, AppLog sanitization
+  and ring buffer) were compiled and unit-tested on the JVM; the Android parts are
   first compiled by the CI workflow / Android Studio sync.
 
 ---
@@ -263,6 +295,9 @@ Automatic tools per step:
 ## 8. Manual test procedure on the Galaxy S25 (Jio SIM)
 
 Preparation (once):
+
+0. In each app open *Battery optimization* → *Allow unrestricted*, then *Open App info* → Battery → Unrestricted, and
+   add SELL AGENT under Settings › Battery › Background usage limits › Never sleeping apps.
 
 1. Start the Windows app, enable the LAN listener, open **Devices ▸ Pair**. Note the IP, port 8766, pairing code and
    the SHA-256 fingerprint.

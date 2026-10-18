@@ -74,9 +74,40 @@ def test_backup_encrypted_roundtrip_and_restore(client, settings):
     assert len(client.get("/api/v1/backup").json()) == 1
 
 
-def test_unencrypted_backup_retention(settings, engine):
-    migrate.upgrade(engine)
+def test_backup_retention_and_plaintext_policy(settings, engine):
+    from sellagent_backend.db import crypto
+
+    key = crypto.get_or_create_key(settings.data_dir)
+    if key is not None:
+        assert engine.info["encrypted"] and not crypto.is_plaintext(settings.db_path)
+        with pytest.raises(backup.BackupError):  # encrypted DB never produces a plaintext backup
+            backup.create_backup(settings.db_path, settings.backups_dir, passphrase=None, app_version="t", key=key)
     for _ in range(4):
-        backup.create_backup(settings.db_path, settings.backups_dir, passphrase=None, app_version="t", keep=2)
-    assert len(backup.list_backups(settings.backups_dir)) == 2
-    assert backup.verify_backup(Path(backup.list_backups(settings.backups_dir)[0]["path"]))["ok"]
+        backup.create_backup(settings.db_path, settings.backups_dir, passphrase="long enough pass", app_version="t", keep=2, key=key)
+    files = backup.list_backups(settings.backups_dir)
+    assert len(files) == 2
+    assert backup.verify_backup(Path(files[0]["path"]), "long enough pass")["ok"]
+
+
+def test_plaintext_database_is_encrypted_in_place(tmp_path):
+    import sqlite3
+
+    from sellagent_backend.db import crypto
+
+    if not crypto.available():
+        pytest.skip("SQLCipher not installed")
+    p = tmp_path / "legacy.db"
+    c = sqlite3.connect(p)
+    c.execute("create table t(x)")
+    c.execute("insert into t values ('Power Gym +919876543210')")
+    c.commit()
+    c.close()
+    key = "ab" * 32
+    eng = make_engine(p, key=key)
+    with eng.connect() as conn:
+        assert conn.execute(text("select x from t")).scalar() == "Power Gym +919876543210"
+    eng.dispose()
+    raw = p.read_bytes()
+    assert not raw.startswith(crypto.PLAINTEXT_HEADER) and b"Power Gym" not in raw
+    with pytest.raises(sqlite3.DatabaseError):
+        sqlite3.connect(p).execute("select * from t").fetchall()

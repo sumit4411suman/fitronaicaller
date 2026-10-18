@@ -43,6 +43,7 @@ class ContactIn(BaseModel):
     notes: str | None = None
     tags: list[str] = Field(default_factory=list)
     consent_status: Literal["unknown", "granted", "denied", "withdrawn"] = "unknown"
+    category: str | None = Field(default="Gym / Fitness", max_length=50)
 
 
 class ContactPatch(BaseModel):
@@ -65,6 +66,7 @@ class ContactPatch(BaseModel):
     consent_status: Literal["unknown", "granted", "denied", "withdrawn"] | None = None
     next_followup_at: datetime | None = None
     archived: bool | None = None
+    category: str | None = Field(default=None, max_length=50)
 
 
 class ContactOut(ORMModel):
@@ -92,6 +94,7 @@ class ContactOut(ORMModel):
     opt_out_reason: str | None
     opted_out_at: datetime | None
     archived: bool
+    category: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -173,6 +176,8 @@ class CampaignIn(BaseModel):
     requires_consent: bool = True
     starts_at: datetime | None = None
     ends_at: datetime | None = None
+    auto_followup: bool = True
+    followup_after_days: int = Field(default=2, ge=1, le=60)
 
 
 class CampaignPatch(BaseModel):
@@ -189,6 +194,8 @@ class CampaignPatch(BaseModel):
     requires_consent: bool | None = None
     starts_at: datetime | None = None
     ends_at: datetime | None = None
+    auto_followup: bool | None = None
+    followup_after_days: int | None = Field(default=None, ge=1, le=60)
 
 
 class CampaignOut(ORMModel):
@@ -208,6 +215,8 @@ class CampaignOut(ORMModel):
     requires_consent: bool
     starts_at: datetime | None
     ends_at: datetime | None
+    auto_followup: bool
+    followup_after_days: int
     created_at: datetime
     updated_at: datetime
 

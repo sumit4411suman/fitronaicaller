@@ -1,11 +1,13 @@
 package com.fitron.sellagent.core.net
 
+import com.fitron.sellagent.core.log.AppLog
 import com.fitron.sellagent.core.security.FingerprintTrust
 import com.fitron.sellagent.core.security.Pairing
 import com.fitron.sellagent.core.security.SecureStore
 import com.fitron.sellagent.protocol.Ack
 import com.fitron.sellagent.protocol.Envelope
 import com.fitron.sellagent.protocol.ErrorEvent
+import com.fitron.sellagent.protocol.EventPayload
 import com.fitron.sellagent.protocol.Heartbeat
 import com.fitron.sellagent.protocol.HeartbeatAck
 import com.fitron.sellagent.protocol.MessageType
@@ -78,6 +80,18 @@ class DeviceSocket(
     private val _lastHeartbeatAckAt = MutableStateFlow<Long?>(null)
     val lastHeartbeatAckAt: StateFlow<Long?> = _lastHeartbeatAckAt
 
+    private val _lastFailure = MutableStateFlow<String?>(null)
+    /** Reason of the most recent connection failure (sanitized), shown by Troubleshooting. Cleared on connect. */
+    val lastFailure: StateFlow<String?> = _lastFailure
+
+    /** True when the last failure was a TLS certificate / pin mismatch. */
+    val lastFailureIsCertificate: Boolean
+        get() = _lastFailure.value?.let { f -> CERT_MARKERS.any { f.contains(it, ignoreCase = true) } } == true
+
+    private val _lastEvent = MutableStateFlow<EventPayload?>(null)
+    /** Last generic `event` notification from the backend (informational). */
+    val lastEvent: StateFlow<EventPayload?> = _lastEvent
+
     @Volatile var lastReceivedMessageId: String? = null
         private set
 
@@ -143,6 +157,7 @@ class DeviceSocket(
 
     /** Called by the app when the operator presses emergency stop locally. */
     fun latchEmergencyStop() {
+        AppLog.w(TAG, "emergency stop latched locally")
         store.emergencyStopLatched = true
         _emergencyStopActive.value = true
     }
@@ -168,6 +183,8 @@ class DeviceSocket(
             val wait = backoffSeconds(attempt)
             attempt++
             _state.value = ConnectionState.Backoff(wait, reason)
+            _lastFailure.value = AppLog.sanitize(reason)
+            AppLog.w(TAG, "connection lost/failed: $reason; retry in ${wait}s")
             appendLog("backoff ${wait}s: $reason")
             delay(wait * 1000L)
         }
@@ -233,6 +250,8 @@ class DeviceSocket(
 
     private fun onOpened(pairing: Pairing) {
         _state.value = ConnectionState.Connected(pairing.backendName)
+        _lastFailure.value = null
+        AppLog.i(TAG, "connected to ${pairing.host}:${pairing.port}")
         appendLog("connected to ${pairing.host}:${pairing.port}")
         send(
             Envelope.of(
@@ -259,8 +278,9 @@ class DeviceSocket(
     // ------------------------------------------------------------------ inbound
 
     private fun handleInbound(text: String) {
-        val env = runCatching { Envelope.parse(text) }.getOrElse {
+        val env = Envelope.parseOrNull(text) ?: run {
             appendLog("<- unparsable message ignored")
+            AppLog.w(TAG, "unparsable inbound message ignored (${text.length} chars)")
             return
         }
         if (!env.isSupportedVersion) {
@@ -275,7 +295,17 @@ class DeviceSocket(
         }
         lastReceivedMessageId = env.messageId
         appendLog("<- ${env.type} ${env.messageId.take(8)}")
+        if (!env.isKnownType) {
+            // Forward compatibility: newer backends may send types this build does not know. Log, never ack, never throw.
+            AppLog.i(TAG, "ignored unknown message type '${env.type.take(40)}'")
+            return
+        }
         when (env.type) {
+            MessageType.EVENT -> {
+                val ev = runCatching { env.payloadAs<EventPayload>() }.getOrNull()
+                _lastEvent.value = ev
+                AppLog.i(TAG, "backend event '${ev?.name?.take(60) ?: "?"}'")
+            }
             MessageType.ACK, MessageType.EMERGENCY_STOP_ACK -> {
                 val id = env.inReplyTo ?: runCatching { env.payloadAs<Ack>().messageId }.getOrNull()
                 if (id != null && outbox.remove(id)) _pendingCount.value = outbox.size()
@@ -297,6 +327,7 @@ class DeviceSocket(
                 if (id != null && outbox.remove(id)) _pendingCount.value = outbox.size()
                 val err = runCatching { env.payloadAs<ErrorEvent>() }.getOrNull()
                 appendLog("   error ${err?.code ?: "?"}: ${err?.message?.take(80) ?: ""}")
+                AppLog.w(TAG, "backend error ${err?.code ?: "?"}: ${err?.message?.take(200) ?: ""}")
                 emit(env)
             }
             else -> emit(env)
@@ -304,6 +335,7 @@ class DeviceSocket(
     }
 
     private fun applyEmergencyFlag(active: Boolean) {
+        if (_emergencyStopActive.value != active) AppLog.w(TAG, "emergency stop ${if (active) "ACTIVE" else "cleared by PC"}")
         store.emergencyStopLatched = active
         _emergencyStopActive.value = active
     }
@@ -313,11 +345,14 @@ class DeviceSocket(
     }
 
     private fun appendLog(line: String) {
+        AppLog.d(TAG, line)
         val stamp = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
-        _log.value = (_log.value + "$stamp $line").takeLast(80)
+        _log.value = (_log.value + "$stamp ${AppLog.sanitize(line)}").takeLast(80)
     }
 
     private companion object {
         const val HEARTBEAT_INTERVAL_MS = 20_000L
+        const val TAG = "socket"
+        val CERT_MARKERS = listOf("SSLHandshake", "CertificateException", "pinned fingerprint", "SSLPeerUnverified", "certificate")
     }
 }

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from sellagent_backend.api.deps import get_db, require_local_auth
+from sellagent_backend.api.deps import get_db, require_area
 from sellagent_backend.api.schemas import BackupIn, RestoreIn, SettingPatch
 from sellagent_backend.api.v1.errors import bad_request
 from sellagent_backend.config import APP_VERSION
@@ -11,8 +11,8 @@ from sellagent_backend.services import audit, backup, settings_service
 from sellagent_backend.services.settings_service import DEFAULTS, READ_ONLY_KEYS, SettingsError
 from sellagent_backend.telecom import audio_gate_status
 
-router = APIRouter(prefix="/settings", tags=["settings"], dependencies=[Depends(require_local_auth)])
-backup_router = APIRouter(prefix="/backup", tags=["backup"], dependencies=[Depends(require_local_auth)])
+router = APIRouter(prefix="/settings", tags=["settings"], dependencies=[Depends(require_area("settings"))])
+backup_router = APIRouter(prefix="/backup", tags=["backup"], dependencies=[Depends(require_area("backup"))])
 
 
 @router.get("")
@@ -64,6 +64,12 @@ def run_retention(db: Session = Depends(get_db)) -> dict:
     return {"transcripts_removed": removed, "retention_days": days}
 
 
+def _db_key(request: Request) -> str | None:
+    from sellagent_backend.db import crypto
+
+    return crypto.get_or_create_key(request.app.state.settings.data_dir) if request.app.state.engine.info.get("encrypted") else None
+
+
 @backup_router.get("")
 def list_backups(request: Request) -> list[dict]:
     return backup.list_backups(request.app.state.settings.backups_dir)
@@ -72,11 +78,12 @@ def list_backups(request: Request) -> list[dict]:
 @backup_router.post("")
 def create_backup(body: BackupIn, request: Request, db: Session = Depends(get_db)) -> dict:
     s = request.app.state.settings
-    if settings_service.get(db, "backup.encrypt") and not body.passphrase:
+    key = _db_key(request)
+    if (settings_service.get(db, "backup.encrypt") or key) and not body.passphrase:
         raise bad_request("backup encryption is enabled; provide a passphrase (>= 8 chars) or disable backup.encrypt", code="passphrase_required")
     db.commit()
     try:
-        info = backup.create_backup(s.db_path, s.backups_dir, passphrase=body.passphrase, app_version=APP_VERSION, keep=int(settings_service.get(db, "backup.retention_count")))
+        info = backup.create_backup(s.db_path, s.backups_dir, passphrase=body.passphrase, app_version=APP_VERSION, keep=int(settings_service.get(db, "backup.retention_count")), key=key)
     except backup.BackupError as exc:
         raise bad_request(str(exc)) from exc
     audit.record(db, "backup.create", data={"path": info["path"], "encrypted": info["encrypted"], "sha256": info["sha256"]})
@@ -109,7 +116,7 @@ def restore(body: RestoreIn, request: Request, db: Session = Depends(get_db)) ->
     db.close()
     request.app.state.engine.dispose()
     try:
-        info = backup.restore_backup(p, s.db_path, passphrase=body.passphrase)
+        info = backup.restore_backup(p, s.db_path, passphrase=body.passphrase, key=_db_key(request))
     except backup.BackupError as exc:
         raise bad_request(str(exc)) from exc
     from sellagent_backend.db import migrate

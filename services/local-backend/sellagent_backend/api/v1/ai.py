@@ -12,13 +12,13 @@ from sellagent_ai.language import detect
 from sellagent_ai.llm import ChatMessage, ProviderUnavailable, collect, make_provider
 from sqlalchemy.orm import Session
 
-from sellagent_backend.api.deps import get_db, require_local_auth
+from sellagent_backend.api.deps import get_db, require_area
 from sellagent_backend.api.schemas import ChatTestIn, ConversationStepIn, ModelPullIn
 from sellagent_backend.api.v1.errors import bad_request
 from sellagent_backend.db.models import AIRun
 from sellagent_backend.services import settings_service
 
-router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(require_local_auth)])
+router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(require_area("ai"))])
 
 _sim_sessions: dict[str, tuple[ConversationStateMachine, ConversationContext]] = {}
 

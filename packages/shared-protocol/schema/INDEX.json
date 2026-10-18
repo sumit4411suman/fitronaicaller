@@ -10,6 +10,7 @@
     "call.request",
     "call.state",
     "error",
+    "event",
     "pairing.complete",
     "pairing.request",
     "pairing.response",

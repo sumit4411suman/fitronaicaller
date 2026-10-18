@@ -25,13 +25,34 @@ def _apply_pragmas(dbapi_conn: sqlite3.Connection, _record: object) -> None:
     cur.close()
 
 
-def make_engine(db_path: Path | str, *, echo: bool = False) -> Engine:
-    if str(db_path) != ":memory:":
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    url = "sqlite:///:memory:" if str(db_path) == ":memory:" else f"sqlite:///{Path(db_path).as_posix()}"
-    engine = create_engine(url, echo=echo, connect_args={"check_same_thread": False})
+def make_engine(db_path: Path | str, *, key: str | None = None, echo: bool = False) -> Engine:
+    """Create the SQLAlchemy engine. With ``key`` the file is opened through SQLCipher (encrypted at rest)."""
+    from sellagent_backend.db import crypto
+
+    if str(db_path) == ":memory:":
+        engine = create_engine("sqlite:///:memory:", echo=echo, connect_args={"check_same_thread": False})
+    else:
+        path = Path(db_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if key is not None:
+            crypto.encrypt_in_place(path, key)
+            engine = create_engine(
+                f"sqlite:///{path.as_posix()}", echo=echo, module=crypto.dbapi(),
+                creator=lambda: crypto.connect(path, key, check_same_thread=False),
+            )
+        else:
+            engine = create_engine(f"sqlite:///{path.as_posix()}", echo=echo, connect_args={"check_same_thread": False})
     event.listen(engine, "connect", _apply_pragmas)
+    engine.info = {"encrypted": key is not None}  # type: ignore[attr-defined]
     return engine
+
+
+def engine_for(settings: object) -> Engine:
+    """Engine for the configured data directory, encrypted whenever SQLCipher is available."""
+    from sellagent_backend.db import crypto
+
+    data_dir = settings.data_dir  # type: ignore[attr-defined]
+    return make_engine(settings.db_path, key=crypto.get_or_create_key(data_dir))  # type: ignore[attr-defined]
 
 
 def make_session_factory(engine: Engine) -> sessionmaker[Session]:

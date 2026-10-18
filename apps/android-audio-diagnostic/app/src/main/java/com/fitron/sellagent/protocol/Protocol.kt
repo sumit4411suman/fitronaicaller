@@ -37,6 +37,15 @@ object MessageType {
     const val EMERGENCY_STOP_ACK = "safety.emergency_stop_ack"
     const val ERROR = "error"
     const val ACK = "ack"
+    /** Generic backend notification envelope (payload {name, data}); informational only, never acked. */
+    const val EVENT = "event"
+
+    /** Every type this protocol mirror understands. Anything else is logged and ignored, never acked. */
+    val KNOWN: Set<String> = setOf(
+        PAIRING_REQUEST, PAIRING_RESPONSE, PAIRING_COMPLETE, HEARTBEAT, HEARTBEAT_ACK, RECONNECT_REQUEST,
+        RECONNECT_RESPONSE, CAPABILITIES, CALL_REQUEST, CALL_STATE, CALL_CANCEL, AUDIO_TEST_START,
+        AUDIO_TEST_EVENT, AUDIO_TEST_RESULT, EMERGENCY_STOP, EMERGENCY_STOP_ACK, ERROR, ACK, EVENT,
+    )
 
     /** Inbound message types for which the backend awaits an `ack` (or `error`) envelope with `in_reply_to`. */
     val ACK_EXPECTED: Set<String> = setOf(CALL_REQUEST)
@@ -267,6 +276,13 @@ data class ErrorEvent(
     @SerialName("detail") val detail: JsonObject? = null,
 )
 
+/** Payload of the generic `event` envelope. `data` is free-form and only displayed/logged. */
+@Serializable
+data class EventPayload(
+    @SerialName("name") val name: String = "",
+    @SerialName("data") val data: JsonObject? = null,
+)
+
 @Serializable
 data class Ack(
     @SerialName("message_id") val messageId: String,
@@ -284,12 +300,19 @@ data class Envelope(
 ) {
     fun toJson(): String = ProtocolJson.encodeToString(this)
 
+    /** False for message types this app does not know; such envelopes are logged and ignored (no ack). */
+    val isKnownType: Boolean
+        get() = type in MessageType.KNOWN
+
     /** True when the major version matches ours (the backend applies the same rule). */
     val isSupportedVersion: Boolean
         get() = protocolVersion.substringBefore('.') == PROTOCOL_VERSION.substringBefore('.')
 
     companion object {
         fun parse(raw: String): Envelope = ProtocolJson.decodeFromString(serializer(), raw)
+
+        /** Tolerant parse: null instead of an exception for malformed input. Unknown `type` values parse fine. */
+        fun parseOrNull(raw: String): Envelope? = runCatching { parse(raw) }.getOrNull()
 
         fun <T> of(type: String, payload: T, payloadSerializer: KSerializer<T>, inReplyTo: String? = null): Envelope =
             Envelope(

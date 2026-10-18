@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.fitron.sellagent.core.AppInfo
 import com.fitron.sellagent.core.CoreHost
+import com.fitron.sellagent.core.log.AppLog
 import com.fitron.sellagent.core.net.PairingClient
 import com.fitron.sellagent.core.security.FingerprintTrust
 import com.fitron.sellagent.core.security.Pairing
@@ -37,8 +38,17 @@ class PairingViewModel(app: Application, private val saved: SavedStateHandle) : 
     val code: StateFlow<String> = saved.getStateFlow(KEY_CODE, "")
     val fingerprint: StateFlow<String> = saved.getStateFlow(KEY_FP, "")
 
-    private val _status = MutableStateFlow<PairingUiStatus>(PairingUiStatus.Idle)
-    val status: StateFlow<PairingUiStatus> = _status
+    private val _status = object : MutableStateFlowProxy<PairingUiStatus>(PairingUiStatus.Idle) {
+        override fun onChange(value: PairingUiStatus) {
+            when (value) {
+                is PairingUiStatus.Failed -> AppLog.w("pairing", "pairing failed: ${value.reason}")
+                PairingUiStatus.Approved -> AppLog.i("pairing", "pairing approved; token stored in encrypted prefs")
+                PairingUiStatus.Checking -> AppLog.i("pairing", "pairing started (TLS check)")
+                else -> Unit
+            }
+        }
+    }
+    val status: StateFlow<PairingUiStatus> = _status.flow
 
     private var job: Job? = null
 
@@ -143,6 +153,7 @@ class PairingViewModel(app: Application, private val saved: SavedStateHandle) : 
     }
 
     fun forget() {
+        AppLog.i("pairing", "pairing forgotten by operator")
         job?.cancel()
         core.store.forgetPairing()
         core.outbox.clear()
@@ -155,4 +166,17 @@ class PairingViewModel(app: Application, private val saved: SavedStateHandle) : 
         const val KEY_CODE = "code"
         const val KEY_FP = "fp"
     }
+}
+
+/** Tiny wrapper so every status change is also written to AppLog. */
+abstract class MutableStateFlowProxy<T>(initial: T) {
+    private val backing = MutableStateFlow(initial)
+    val flow: StateFlow<T> = backing
+    var value: T
+        get() = backing.value
+        set(v) {
+            backing.value = v
+            onChange(v)
+        }
+    abstract fun onChange(value: T)
 }

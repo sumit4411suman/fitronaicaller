@@ -11,7 +11,7 @@ from sellagent_protocol import PROTOCOL_VERSION
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sellagent_backend.api.deps import get_db, require_device_auth, require_local_auth
+from sellagent_backend.api.deps import get_db, require_area, require_device_auth
 from sellagent_backend.api.schemas import DeviceOut, Ok, PairingDecision, PairingRequestIn
 from sellagent_backend.api.v1.errors import bad_request, not_found
 from sellagent_backend.db.models import PairedDevice
@@ -19,7 +19,7 @@ from sellagent_backend.security.pairing import PendingPairing
 from sellagent_backend.security.tokens import generate_token, hash_token
 from sellagent_backend.services import audit
 
-router = APIRouter(prefix="/devices", tags=["devices"], dependencies=[Depends(require_local_auth)])
+router = APIRouter(prefix="/devices", tags=["devices"], dependencies=[Depends(require_area("devices"))])
 device_public_router = APIRouter(prefix="/devices", tags=["devices-public"])
 
 _attempts: dict[str, list[float]] = {}

@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sellagent_backend.api.deps import get_db, require_local_auth
+from sellagent_backend.api.deps import get_db, require_area
 from sellagent_backend.api.schemas import (
     ContactIn,
     ContactOut,
@@ -31,8 +31,8 @@ from sellagent_backend.services import import_export, suppression
 from sellagent_backend.services.contacts import ContactError, DuplicateContact
 from sellagent_backend.services.phone import PhoneError
 
-router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_local_auth)])
-sup_router = APIRouter(prefix="/suppression", tags=["suppression"], dependencies=[Depends(require_local_auth)])
+router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_area("contacts"))])
+sup_router = APIRouter(prefix="/suppression", tags=["suppression"], dependencies=[Depends(require_area("suppression"))])
 
 
 @router.get("", response_model=Page)

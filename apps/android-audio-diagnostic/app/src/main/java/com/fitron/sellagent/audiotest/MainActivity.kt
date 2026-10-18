@@ -46,6 +46,14 @@ import com.fitron.sellagent.audiotest.ui.TestRunnerScreen
 import com.fitron.sellagent.brand.BrandColors
 import com.fitron.sellagent.brand.SellAgentTheme
 import com.fitron.sellagent.core.ui.PairingScreen
+import com.fitron.sellagent.core.ui.AudioRouteScreen
+import com.fitron.sellagent.core.ui.BatteryScreen
+import com.fitron.sellagent.core.ui.CoreDest
+import com.fitron.sellagent.core.ui.DiagnosticsScreen
+import com.fitron.sellagent.core.ui.LogsScreen
+import com.fitron.sellagent.core.ui.MicTestScreen
+import com.fitron.sellagent.core.ui.SpeakerTestScreen
+import com.fitron.sellagent.core.ui.TroubleshootingScreen
 import com.fitron.sellagent.core.ui.PermissionsScreen
 
 private data class Dest(val route: String, val label: Int, val icon: ImageVector)
@@ -57,6 +65,19 @@ private val destinations = listOf(
     Dest("call", R.string.nav_call, Icons.Filled.Call),
     Dest("report", R.string.nav_report, Icons.Filled.Info),
 )
+
+/** Maps shared core destinations onto this app's routes. */
+fun routeOf(dest: CoreDest): String = when (dest) {
+    CoreDest.CONNECTION -> "pairing"
+    CoreDest.PERMISSIONS -> "permissions"
+    CoreDest.DIAGNOSTICS -> "diagnostics"
+    CoreDest.BATTERY -> "battery"
+    CoreDest.LOGS -> "logs"
+    CoreDest.TROUBLESHOOTING -> "troubleshooting"
+    CoreDest.MIC_TEST -> "mic_test"
+    CoreDest.SPEAKER_TEST -> "speaker_test"
+    CoreDest.AUDIO_ROUTE -> "audio_route"
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -119,7 +140,14 @@ private fun DiagnosticNav() {
                 composable("permissions") { PermissionsScreen() }
                 composable("tests") { TestRunnerScreen() }
                 composable("call") { CallControlScreen() }
-                composable("report") { ReportScreen() }
+                composable("report") { ReportScreen(navigate = { navController.navigate(routeOf(it)) }) }
+                composable("diagnostics") { DiagnosticsScreen(navigate = { navController.navigate(routeOf(it)) }) }
+                composable("logs") { LogsScreen() }
+                composable("troubleshooting") { TroubleshootingScreen(navigate = { navController.navigate(routeOf(it)) }) }
+                composable("battery") { BatteryScreen() }
+                composable("mic_test") { MicTestScreen() }
+                composable("speaker_test") { SpeakerTestScreen() }
+                composable("audio_route") { AudioRouteScreen() }
             }
         }
     }

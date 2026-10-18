@@ -17,9 +17,14 @@ if config.config_file_name is not None and not config.attributes.get("skip_loggi
 target_metadata = Base.metadata
 
 
+def include_object(obj, name, type_, reflected, compare_to):  # type: ignore[no-untyped-def]
+    """FTS5 virtual/shadow tables are managed by hand-written SQL, never by autogenerate."""
+    return not (type_ == "table" and name and name.startswith("knowledge_chunks_fts"))
+
+
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, render_as_batch=True)
+    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, render_as_batch=True, include_object=include_object)
     with context.begin_transaction():
         context.run_migrations()
 
@@ -35,7 +40,7 @@ def run_migrations_online() -> None:
 
 
 def _run(connection) -> None:  # type: ignore[no-untyped-def]
-    context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
+    context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True, include_object=include_object)
     with context.begin_transaction():
         context.run_migrations()
 

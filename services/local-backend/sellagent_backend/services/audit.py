@@ -37,6 +37,10 @@ def record(
     request_id: str | None = None,
     data: dict[str, Any] | None = None,
 ) -> AuditEvent:
+    if actor == "operator":
+        from sellagent_backend.security.auth import current_actor
+
+        actor = current_actor.get() or actor
     ev = AuditEvent(
         actor=actor,
         action=action,

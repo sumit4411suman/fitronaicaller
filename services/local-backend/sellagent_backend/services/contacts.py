@@ -80,6 +80,7 @@ def create(session: Session, data: dict[str, Any], *, actor: str = "operator", r
         notes=data.get("notes") or None,
         tags=list(data.get("tags") or []),
         consent_status=data.get("consent_status") or "unknown",
+        category=(data.get("category") or None),
     )
     if c.email and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", c.email):
         raise ContactError("invalid email address")
@@ -107,7 +108,7 @@ def update(session: Session, contact_id: str, data: dict[str, Any], *, actor: st
     for field in (
         "business_name", "contact_person", "email", "city", "district", "state", "country", "source_url",
         "source_verification", "lead_source", "lead_stage", "campaign_id", "notes", "tags", "consent_status",
-        "last_contact_at", "next_followup_at", "archived",
+        "last_contact_at", "next_followup_at", "archived", "category",
     ):
         if field in data:
             val = data[field]
@@ -252,5 +253,5 @@ def to_dict(c: Contact) -> dict[str, Any]:
         "lead_source": c.lead_source, "lead_stage": c.lead_stage, "campaign_id": c.campaign_id,
         "last_contact_at": c.last_contact_at, "next_followup_at": c.next_followup_at, "notes": c.notes, "tags": c.tags,
         "consent_status": c.consent_status, "opted_out": c.opted_out, "opt_out_reason": c.opt_out_reason,
-        "opted_out_at": c.opted_out_at, "archived": c.archived, "created_at": c.created_at, "updated_at": c.updated_at,
+        "opted_out_at": c.opted_out_at, "archived": c.archived, "category": c.category, "created_at": c.created_at, "updated_at": c.updated_at,
     }

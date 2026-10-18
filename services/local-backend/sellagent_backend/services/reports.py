@@ -30,7 +30,25 @@ def dashboard(session: Session, now: datetime | None = None) -> dict[str, Any]:
         end = start + timedelta(days=1)
         n = session.scalar(select(func.count()).select_from(Call).where(Call.started_at >= start, Call.started_at < end)) or 0
         daily.append({"date": start.date().isoformat(), "calls": int(n)})
+    two_days_ago, two_weeks_ago = now - timedelta(days=2), now - timedelta(days=14)
+    calls_yesterday = session.scalar(select(func.count()).select_from(Call).where(Call.started_at >= two_days_ago, Call.started_at < day_ago)) or 0
+    calls_prev_week = session.scalar(select(func.count()).select_from(Call).where(Call.started_at >= two_weeks_ago, Call.started_at < week_ago)) or 0
+    contacts_added_week = session.scalar(select(func.count()).select_from(Contact).where(Contact.created_at >= week_ago)) or 0
+    contacts_added_prev = session.scalar(select(func.count()).select_from(Contact).where(Contact.created_at >= two_weeks_ago, Contact.created_at < week_ago)) or 0
+
+    def _cnt(outcome: str, a: datetime, b: datetime) -> int:
+        return int(session.scalar(select(func.count()).select_from(Call).where(Call.outcome == outcome, Call.ended_at >= a, Call.ended_at < b)) or 0)
+
+    sentiment = {k or "unknown": int(n) for k, n in session.execute(select(Call.sentiment, func.count()).where(Call.started_at >= week_ago).group_by(Call.sentiment))}
+    comparisons = {
+        "calls_today_vs_yesterday": {"current": int(calls_today), "previous": int(calls_yesterday)},
+        "calls_week_vs_previous": {"current": int(calls_week), "previous": int(calls_prev_week)},
+        "contacts_added_week_vs_previous": {"current": int(contacts_added_week), "previous": int(contacts_added_prev)},
+        "interested_week_vs_previous": {"current": _cnt("interested", week_ago, now) + _cnt("demo_scheduled", week_ago, now), "previous": _cnt("interested", two_weeks_ago, week_ago) + _cnt("demo_scheduled", two_weeks_ago, week_ago)},
+        "conversions_week_vs_previous": {"current": _cnt("converted", week_ago, now), "previous": _cnt("converted", two_weeks_ago, week_ago)},
+    }
     return {
+        "comparisons": comparisons, "sentiment_week": sentiment,
         "generated_at": now, "contacts_total": int(total_contacts), "contacts_by_stage": by_stage, "calls_today": int(calls_today),
         "calls_week": int(calls_week), "outcomes_week": outcomes, "connect_rate_week": (connected / calls_week) if calls_week else None,
         "followups_due_24h": int(followups_due), "followups_overdue": int(overdue), "call_queue": queue, "campaigns": campaigns,

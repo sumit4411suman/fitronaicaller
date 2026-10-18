@@ -13,6 +13,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Lock
@@ -42,6 +46,12 @@ fun MoreScreen(navigate: (String) -> Unit) {
     val items = listOf(
         Triple(Icons.Filled.Phone, R.string.more_device_connection, Routes.CONNECTION),
         Triple(Icons.Filled.Build, R.string.diag_title, Routes.DIAGNOSTICS),
+        Triple(Icons.Filled.Notifications, R.string.mic_test_title, Routes.MIC_TEST),
+        Triple(Icons.Filled.Notifications, R.string.speaker_test_title, Routes.SPEAKER_TEST),
+        Triple(Icons.Filled.Call, R.string.route_title, Routes.AUDIO_ROUTE),
+        Triple(Icons.Filled.Home, R.string.battery_title, Routes.BATTERY),
+        Triple(Icons.Filled.Warning, R.string.ts_title, Routes.TROUBLESHOOTING),
+        Triple(Icons.Filled.List, R.string.logs_title, Routes.LOGS),
         Triple(Icons.Filled.Lock, R.string.perm_title, Routes.PERMISSIONS),
         Triple(Icons.Filled.Settings, R.string.nav_settings, Routes.SETTINGS),
         Triple(Icons.Filled.Info, R.string.help_title, Routes.HELP),

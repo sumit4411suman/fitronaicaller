@@ -14,3 +14,10 @@ python-multipart>=0.0.20
 numpy==2.5.4
 # Windows has no system IANA time-zone database; zoneinfo needs this for Asia/Kolkata
 tzdata>=2025.2
+# Encrypted SQLite (SQLCipher AES-256, FTS5) - prebuilt wheels for Windows x64 / Python 3.12
+sqlcipher3-wheels==0.5.7
+# JWT sessions for local users/roles
+pyjwt==2.15.1
+# Knowledge-base document import
+pypdf==6.21.1
+python-docx==1.2.0

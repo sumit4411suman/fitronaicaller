@@ -107,4 +107,5 @@
     <string name="report_timeline">टाइमलाइन</string>
     <string name="onb_1_body">SELL AGENT ऑडियो टेस्ट इस फ़ोन पर वास्तविक कॉल के साथ 16-चरण ऑडियो व्यवहार्यता योजना चलाता है, केवल वही मापता है जो Android अनुमति देता है (निकट-छोर माइक्रोफ़ोन, स्पीकर प्लेबैक, रूट, ध्वनिक लूपबैक) और हर परिणाम PC को भेजता है। यह कभी कैंपेन कॉल नहीं करता।</string>
     <string name="call_save_note">नोट टाइमलाइन में सहेजें</string>
+    <string name="report_tools">समस्या निवारण और उपकरण</string>
 </resources>

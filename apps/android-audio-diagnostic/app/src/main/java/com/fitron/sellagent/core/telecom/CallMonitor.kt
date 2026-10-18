@@ -8,6 +8,7 @@ import android.telephony.PhoneStateListener
 import android.telephony.TelephonyCallback
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
+import com.fitron.sellagent.core.log.AppLog
 import com.fitron.sellagent.protocol.CallState
 import java.util.concurrent.Executor
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -104,6 +105,7 @@ class CallMonitor(private val context: Context) {
             else -> CallState.UNKNOWN
         }
         val value = CoarseCallState(state, mapped)
+        AppLog.i("telephony", "TelephonyCallback ${describe(state)}")
         _state.value = value
         _events.tryEmit(value)
     }

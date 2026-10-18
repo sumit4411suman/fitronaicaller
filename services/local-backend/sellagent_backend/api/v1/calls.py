@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
 from sellagent_ai.conversation import (
     OUTCOMES,
     ConversationContext,
@@ -16,7 +17,7 @@ from sellagent_ai.conversation import (
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from sellagent_backend.api.deps import get_db, require_local_auth
+from sellagent_backend.api.deps import get_db, require_area, require_local_auth
 from sellagent_backend.api.schemas import (
     CallJobIn,
     CallJobOut,
@@ -31,13 +32,14 @@ from sellagent_backend.api.schemas import (
 )
 from sellagent_backend.api.v1.errors import bad_request, not_found
 from sellagent_backend.db.models import Call, CallEvent, CallJob, CallNote, Contact, Transcript
+from sellagent_backend.security.auth import Principal
 from sellagent_backend.services import call_jobs as svc
 from sellagent_backend.services import contacts as contacts_svc
 from sellagent_backend.services import followups, reports, settings_service
 from sellagent_backend.services.call_jobs import CallJobError
 
-router = APIRouter(prefix="/call-jobs", tags=["calls"], dependencies=[Depends(require_local_auth)])
-calls_router = APIRouter(prefix="/calls", tags=["calls"], dependencies=[Depends(require_local_auth)])
+router = APIRouter(prefix="/call-jobs", tags=["calls"], dependencies=[Depends(require_area("calls"))])
+calls_router = APIRouter(prefix="/calls", tags=["calls"], dependencies=[Depends(require_area("calls"))])
 
 
 @router.get("", response_model=Page)
@@ -64,13 +66,19 @@ def create_job(body: CallJobIn, db: Session = Depends(get_db)) -> CallJob:
         raise (not_found if "not found" in str(exc) else bad_request)(str(exc), code="call_job_error") from exc
 
 
-@router.post("/emergency-stop")
-async def emergency_stop(body: EmergencyStopIn, request: Request) -> dict:
+safety_router = APIRouter(prefix="/call-jobs", tags=["calls"])
+
+
+@safety_router.post("/emergency-stop")
+async def emergency_stop(body: EmergencyStopIn, request: Request, principal: Principal = Depends(require_local_auth)) -> dict:
+    """Any signed-in role (including viewer) may ACTIVATE the stop; clearing it needs calls:write."""
     hub = request.app.state.hub
+    if not body.activate and not principal.can("calls:write"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail={"code": "forbidden", "error": "clearing the emergency stop needs calls:write"})
     if body.activate:
-        cancelled = await hub.emergency_stop(reason=body.reason, issued_by="windows")
+        cancelled = await hub.emergency_stop(reason=body.reason, issued_by="windows", actor=principal.actor)
         return {"active": True, "cancelled_jobs": cancelled}
-    await hub.clear_emergency_stop()
+    await hub.clear_emergency_stop(actor=principal.actor)
     return {"active": False, "cancelled_jobs": []}
 
 
@@ -223,8 +231,12 @@ def conversation_step(call_id: str, body: ConversationStepIn, request: Request, 
         raise bad_request(f"call is not live (state {sm.state})", code="not_live")
     ctx = ConversationContext(consent_ok=contact.consent_status == "granted", emergency_stop=bool(settings_service.get(db, "calling.emergency_stop_active")), opted_out=contact.opted_out, authorized=True)
     seq = (db.scalar(select(func.max(Transcript.seq)).where(Transcript.call_id == c.id)) or 0) + 1
+    turn_sentiment = None
     if body.utterance:
-        db.add(Transcript(call_id=c.id, seq=seq, speaker="prospect", text=body.utterance, source="typed"))
+        from sellagent_ai.sentiment import analyze
+
+        turn_sentiment = analyze(body.utterance)
+        db.add(Transcript(call_id=c.id, seq=seq, speaker="prospect", text=body.utterance, source="typed", sentiment=turn_sentiment.label))
         seq += 1
     engine = request.app.state.conversation_engine(use_llm=body.use_llm)
     facts = _facts(db, body.utterance or "")
@@ -248,15 +260,23 @@ def conversation_step(call_id: str, body: ConversationStepIn, request: Request, 
         job = db.get(CallJob, c.call_job_id)
         if job and job.status not in ("completed", "failed", "cancelled"):
             svc.complete(db, job.id, outcome=turn.outcome or ("opted_out" if sm.state == State.OPTED_OUT else "callback_requested"), actor="operator")
-    return {"state": sm.state.value, "agent_text": turn.agent_text, "language": turn.language, "knowledge_refs": turn.knowledge_refs, "source": turn.source, "guardrail": turn.guardrail.to_dict() if turn.guardrail else None, "followup_requested": turn.followup_requested, "outcome": turn.outcome, "terminal": sm.is_terminal, "llm": turn.llm_metrics}
+    if turn_sentiment is not None:
+        from sellagent_ai.sentiment import overall
+
+        labels = [t for t in db.scalars(select(Transcript.sentiment).where(Transcript.call_id == c.id, Transcript.speaker == "prospect"))]
+        c.sentiment = overall([*labels, turn_sentiment.label])
+    return {"sentiment": turn_sentiment.label if turn_sentiment else None, "call_sentiment": c.sentiment, "state": sm.state.value, "agent_text": turn.agent_text, "language": turn.language, "knowledge_refs": turn.knowledge_refs, "source": turn.source, "guardrail": turn.guardrail.to_dict() if turn.guardrail else None, "followup_requested": turn.followup_requested, "outcome": turn.outcome, "terminal": sm.is_terminal, "llm": turn.llm_metrics}
 
 
 @calls_router.post("/{call_id}/transcript")
 def add_transcript(call_id: str, body: TranscriptIn, db: Session = Depends(get_db)) -> dict:
     c = _call(db, call_id)
     seq = (db.scalar(select(func.max(Transcript.seq)).where(Transcript.call_id == c.id)) or 0) + 1
-    db.add(Transcript(call_id=c.id, seq=seq, speaker=body.speaker, text=body.text, language=body.language, source=body.source))
-    return {"seq": seq}
+    from sellagent_ai.sentiment import analyze
+
+    senti = analyze(body.text).label if body.speaker == "prospect" else None
+    db.add(Transcript(call_id=c.id, seq=seq, speaker=body.speaker, text=body.text, language=body.language, source=body.source, sentiment=senti))
+    return {"seq": seq, "sentiment": senti}
 
 
 @calls_router.post("/{call_id}/notes")
@@ -305,3 +325,33 @@ async def cancel_live(call_id: str, body: CancelIn, request: Request, db: Sessio
     if job.route == "android_companion" and job.device_id:
         await request.app.state.telecom["android_companion"].cancel(call_job_id=job.id, device_id=job.device_id, reason=body.reason)
     return Ok(detail="cancelled")
+
+
+@calls_router.get("/{call_id}/summary")
+def call_summary(call_id: str, db: Session = Depends(get_db)) -> dict:
+    """Call summary: duration, result, overall sentiment, key points, knowledge used and next action."""
+    from sellagent_backend.services import call_summary as cs
+
+    c = _call(db, call_id)
+    summary = cs.build(db, c)
+    c.summary = {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in summary.items() if k not in ("contact", "next_action")}
+    return summary
+
+
+class TranscriptionConsentIn(BaseModel):
+    prospect_consented: bool
+    disclosure_text_read: bool
+
+
+@calls_router.post("/{call_id}/transcription-consent")
+def transcription_consent(call_id: str, body: TranscriptionConsentIn, db: Session = Depends(get_db)) -> dict:
+    """Operator confirms the prospect agreed to live transcription after hearing the disclosure. Audio is never stored."""
+    from sellagent_backend.services import audit
+
+    c = _call(db, call_id)
+    if not (body.prospect_consented and body.disclosure_text_read):
+        raise bad_request("both prospect_consented and disclosure_text_read must be true", code="consent_required")
+    c.transcription_consent_at = datetime.now(UTC)
+    c.recording_consent = True
+    audit.record(db, "call.transcription_consent", entity_type="call", entity_id=c.id, severity="warning", data={"disclosure": settings_service.get(db, "privacy.recording_disclosure_text")})
+    return {"call_id": c.id, "transcription_consent_at": c.transcription_consent_at}

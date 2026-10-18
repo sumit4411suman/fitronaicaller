@@ -107,4 +107,5 @@
     <string name="report_timeline">Timeline</string>
     <string name="onb_1_body">SELL AGENT Audio Test runs the 16-step audio feasibility plan on this phone with a real call, measures only what Android allows (near-end microphone, speaker playback, routes, acoustic loopback) and sends each result to the PC. It never places campaign calls.</string>
     <string name="call_save_note">Save note to timeline</string>
+    <string name="report_tools">Troubleshooting &amp; tools</string>
 </resources>

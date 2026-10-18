@@ -59,10 +59,11 @@ class Settings(BaseSettings):
     llm_provider: str = "ollama"  # ollama | llamacpp | none
     llm_model: str = "qwen3:1.7b"
     llm_timeout_seconds: float = 60.0
-    whisper_model: str = "small"
+    whisper_model: str = "base"
     piper_voice_en: str = "en_US-lessac-medium"
     piper_voice_hi: str = ""
     log_level: str = "INFO"
+    disable_workers: bool = False  # tests drive workers explicitly
 
     @property
     def db_path(self) -> Path:
@@ -77,6 +78,10 @@ class Settings(BaseSettings):
         return self.data_dir / "backups"
 
     @property
+    def reports_dir(self) -> Path:
+        return self.data_dir / "reports"
+
+    @property
     def logs_dir(self) -> Path:
         return self.data_dir / "logs"
 
@@ -85,7 +90,7 @@ class Settings(BaseSettings):
         return self.data_dir / "local_api_token"
 
     def ensure_dirs(self) -> None:
-        for d in (self.data_dir, self.models_dir, self.backups_dir, self.logs_dir):
+        for d in (self.data_dir, self.models_dir, self.backups_dir, self.logs_dir, self.reports_dir):
             d.mkdir(parents=True, exist_ok=True)
 
 

@@ -7,9 +7,31 @@ import base64
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPlainTextEdit, QSpinBox, QTabWidget, QVBoxLayout, QWidget
 
 from sellagent_desktop import audio
-from sellagent_desktop.api_client import LONG_TIMEOUT
+from PySide6.QtCore import QThread, Signal
+
+from sellagent_desktop.api_client import LONG_TIMEOUT, inflight_add
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.widgets import Card, DataTable, KeyValueGrid, button, caption, combo, mock_badge, pretty_json, status_label
+
+
+class ChatStream(QThread):
+    """SSE reader thread for /ai/chat-stream. Emits (event_name, data) on the UI thread via a queued signal."""
+
+    event = Signal(str, object)
+    failed = Signal(object)
+
+    def __init__(self, api, body: dict):  # type: ignore[no-untyped-def]
+        super().__init__()
+        self.api, self.body, self.cancelled = api, body, False
+
+    def run(self) -> None:
+        inflight_add(1)
+        try:
+            self.api.stream_sse("/ai/chat-stream", self.body, lambda n, d: self.event.emit(n, d), cancelled=lambda: self.cancelled)
+        except Exception as exc:  # noqa: BLE001
+            self.failed.emit(exc)
+        finally:
+            inflight_add(-1)
 
 
 class DiagnosticsScreen(BaseScreen):
@@ -41,7 +63,14 @@ class DiagnosticsScreen(BaseScreen):
         self.max_tokens.setValue(128)
         self.max_tokens.setPrefix("max tokens ")
         row.addWidget(self.max_tokens)
-        row.addWidget(button("Run chat test", "primary", self.chat_test))
+        self.chat_btn = button("Run chat test (streaming)", "primary", self.chat_test)
+        self.chat_btn.setObjectName("chat_stream_btn")
+        row.addWidget(self.chat_btn)
+        self.cancel_btn = button("Cancel", "danger", self.cancel_chat, tooltip="Cancels the running AI job (POST /system/ai-jobs/{id}/cancel)")
+        self.cancel_btn.setObjectName("chat_cancel_btn")
+        self.cancel_btn.setProperty("perm", "system:write")
+        self.cancel_btn.setEnabled(False)
+        row.addWidget(self.cancel_btn)
         cl.addLayout(row)
         self.chat_out = QPlainTextEdit()
         self.chat_out.setReadOnly(True)
@@ -145,12 +174,52 @@ class DiagnosticsScreen(BaseScreen):
         self.runs_table.set_rows(runs)
 
     def chat_test(self) -> None:
+        """Streams tokens from POST /ai/chat-stream (SSE) on a worker thread; tokens are appended as they arrive."""
         p = self.prompt.text().strip()
         if not p:
             self.toast("Enter a prompt", "warning")
             return
         body = {"prompt": p, "language": self.chat_lang.currentData(), "max_tokens": self.max_tokens.value()}
-        self.run(lambda: self.api.post("/ai/chat-test", body, timeout=120), self._chat_done, busy_text="Generating…")
+        self.chat_out.clear()
+        self.chat_metrics.set_rows([("status", "starting…")])
+        self.stream_job_id = None
+        self.stream_events: list[tuple[str, object]] = []
+        self.chat_btn.setEnabled(False)
+        self.cancel_btn.setEnabled(True)
+        self.stream = ChatStream(self.api, body)
+        self.stream.event.connect(self._stream_event)
+        self.stream.failed.connect(lambda e: (self.report_error(e), self._stream_done()))
+        self.stream.finished.connect(self._stream_done)
+        self.stream.start()
+
+    def _stream_event(self, name: str, data: object) -> None:
+        self.stream_events.append((name, data))
+        d = data if isinstance(data, dict) else {}
+        if name == "start":
+            self.stream_job_id = d.get("job_id")
+            self.chat_metrics.set_rows([("status", "streaming"), ("job", self.stream_job_id), ("model", f"{d.get('provider')} / {d.get('model')}")])
+        elif name == "message":
+            tok = d.get("token") if isinstance(data, dict) else str(data)
+            if tok:
+                self.chat_out.moveCursor(self.chat_out.textCursor().MoveOperation.End)
+                self.chat_out.insertPlainText(str(tok))
+        elif name == "error":
+            self.chat_metrics.set_rows([("status", "error"), ("error", d.get("error") or d.get("message") or pretty_json(d))])
+            self.toast(f"AI stream error: {d.get('error') or pretty_json(d)}", "error")
+        elif name == "done":
+            self.chat_metrics.set_rows([("label", "diagnostic stream (not a call)"), ("first token", f"{d.get('first_token_ms')} ms"), ("total", f"{d.get('total_ms')} ms"), ("characters", d.get("chars")), ("job status", d.get("status")), ("guardrail", pretty_json(d.get("guardrail")) if d.get("guardrail") else "n/a (no text)")])
+
+    def _stream_done(self) -> None:
+        self.chat_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(False)
+        self.refresh()
+
+    def cancel_chat(self) -> None:
+        jid = getattr(self, "stream_job_id", None)
+        if getattr(self, "stream", None) is not None:
+            self.stream.cancelled = True
+        if jid:
+            self.run(lambda: self.api.post(f"/system/ai-jobs/{jid}/cancel"), lambda r: self.toast("Cancelled" if r.get("cancelled") else "Job already finished", "info"))
 
     def _chat_done(self, r: dict) -> None:
         self.chat_out.setPlainText(r.get("text", ""))

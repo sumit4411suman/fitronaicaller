@@ -28,3 +28,10 @@ class AppContext:
     devices: list[dict[str, Any]] = field(default_factory=list)
     connected_devices: list[str] = field(default_factory=list)
     last_heartbeat: dict[str, Any] = field(default_factory=dict)  # latest session.heartbeat payload (+ received_at)
+    actor: str = "owner"
+    role: str = "admin"
+    via: str = "local_token"
+    permissions: set[str] = field(default_factory=lambda: {"*"})
+
+    def can(self, perm: str) -> bool:
+        return "*" in self.permissions or perm in self.permissions

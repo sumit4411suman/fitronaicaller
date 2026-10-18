@@ -45,13 +45,21 @@ class ModelManagerScreen(BaseScreen):
         cat = Card("Catalog — candidates for a 16 GB CPU-only PC")
         self.catalog_note = caption("")
         cat.add(self.catalog_note)
-        self.catalog_table = DataTable([("Model", "name"), ("Params", "params"), ("Download (GB)", "approx_download_gb"), ("RAM (GB)", "approx_ram_gb"), ("License", "license"), ("Notes", "notes")])
+        self.catalog_table = DataTable([("Model", "name"), ("Params", "params"), ("Download (GB)", "approx_download_gb"), ("RAM (GB)", "approx_ram_gb"), ("License", lambda r: r.get("license", "") + ("  ⚠" if r.get("license_warning") else "")), ("Notes", "notes")])
         self.catalog_table.setMaximumHeight(170)
         self.catalog_table.itemSelectionChanged.connect(self._sync_ack)
         cat.add(self.catalog_table)
         self.ack = QCheckBox("I understand this downloads a model from the internet")
         self.ack.setAccessibleName("Acknowledge download")
         self.ack.stateChanged.connect(self._sync_ack)
+        self.license_lbl = QLabel("")
+        self.license_lbl.setProperty("role", "chip-danger")
+        self.license_lbl.setWordWrap(True)
+        self.license_lbl.setVisible(False)
+        self.license_ack = QCheckBox("I confirm I have permission to use this model under its licence for commercial FITRON sales")
+        self.license_ack.setObjectName("license_ack")
+        self.license_ack.setVisible(False)
+        self.license_ack.stateChanged.connect(self._sync_ack)
         self.pull_btn = button("Pull selected model", "primary", self.pull_selected)
         self.pull_btn.setEnabled(False)
         self.pull_status = status_label("")
@@ -61,6 +69,8 @@ class ModelManagerScreen(BaseScreen):
         bar.addStretch(1)
         holder = QLabel()
         holder.setLayout(bar)
+        cat.add(self.license_lbl)
+        cat.add(self.license_ack)
         cat.add(holder)
         cat.add(self.pull_status)
         self.root.addWidget(cat)
@@ -105,9 +115,16 @@ class ModelManagerScreen(BaseScreen):
 
     def _sync_ack(self) -> None:
         row = self.catalog_table.selected_row()
+        warning = (row or {}).get("license_warning")
+        self.license_lbl.setVisible(bool(warning))
+        self.license_lbl.setText(f"Licence: {row.get('license')} — {warning}" if warning else "")
+        self.license_ack.setVisible(bool(warning))
+        if not warning:
+            self.license_ack.setChecked(False)
         if row:
             self.ack.setText(f"I understand this downloads ~{row.get('approx_download_gb')} GB ({row.get('name')}) from the internet")
-        self.pull_btn.setEnabled(bool(row) and self.ack.isChecked() and self.external_allowed and self.provider == "ollama")
+        lic_ok = (not warning) or self.license_ack.isChecked()
+        self.pull_btn.setEnabled(bool(row) and self.ack.isChecked() and lic_ok and self.external_allowed and self.provider == "ollama")
         if not self.external_allowed:
             self.pull_btn.setToolTip("Blocked: enable privacy.allow_external_network in Settings first")
         elif self.provider != "ollama":
@@ -123,7 +140,10 @@ class ModelManagerScreen(BaseScreen):
             return
         self.pull_status.setText(f"Pulling {row['name']}… (the backend reports only when the pull finishes)")
         name = row["name"]
-        self.run(lambda: self.api.post("/ai/models/pull", {"model": name, "acknowledge_download": True}, timeout=LONG_TIMEOUT), self._pulled, self._pull_failed, busy_text="Downloading…")
+        body = {"model": name, "acknowledge_download": True}
+        if row.get("license_warning"):
+            body["acknowledge_license"] = self.license_ack.isChecked()
+        self.run(lambda: self.api.post("/ai/models/pull", body, timeout=LONG_TIMEOUT), self._pulled, self._pull_failed, busy_text="Downloading…")
 
     def _pulled(self, res: dict) -> None:
         self.pull_status.setText(f"{res.get('model')}: {res.get('status')} ({'done' if res.get('done') else 'not finished'})")

@@ -31,12 +31,13 @@ class BackupScreen(BaseScreen):
         self.root.addWidget(self.result)
 
     def refresh(self) -> None:
-        self.run(lambda: (self.api.get("/backup"), self.api.get("/settings")), self._show)
+        self.run(lambda: (self.api.get("/backup"), self.api.get("/settings"), self.api.get("/health")), self._show)
 
     def _show(self, res: tuple) -> None:
-        rows, s = res
-        self.encrypt = bool(s.get("values", {}).get("backup.encrypt"))
-        self.note.setText(f"Encryption: {'ON — a passphrase (>= 8 chars) is required and must be kept safe; it cannot be recovered' if self.encrypt else 'OFF — plain SQLite copies with a JSON manifest'} · keep last {s.get('values', {}).get('backup.retention_count')} · folder {self.ctx.data_dir / 'backups'}")
+        rows, s, h = res
+        self.db_encrypted = bool((h.get("database") or {}).get("encrypted"))
+        self.encrypt = bool(s.get("values", {}).get("backup.encrypt")) or self.db_encrypted
+        self.note.setText(("Database is encrypted (AES-256): every backup needs a passphrase. " if self.db_encrypted else "") + f"Encryption: {'ON — a passphrase (>= 8 chars) is required and must be kept safe; it cannot be recovered' if self.encrypt else 'OFF — plain SQLite copies with a JSON manifest'} · keep last {s.get('values', {}).get('backup.retention_count')} · folder {self.ctx.data_dir / 'backups'}")
         self.table.set_rows(rows)
         self.empty.setVisible(not rows)
 

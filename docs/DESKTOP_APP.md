@@ -81,8 +81,8 @@ screen is also reachable programmatically with `navigate(<screen key>)` (used by
 | Knowledge Base | `knowledge` | `/knowledge*` |
 | AI Settings | AI model manager (`models`), Speech & AI diagnostics (`diagnostics`), Sales script editor (`scripts`) | `/ai/*`, `/speech/*`, `/knowledge` |
 | Devices | Pairing (`devices`), Audio feasibility console (`audio_tests`) | `/devices/*`, `/audio-tests/*`, `/settings/release-gate` |
-| System Status | Health, logs & audit (`logs`), Backup & restore (`backup`) | `/health`, `/audit`, `/backup*` |
-| Settings | Privacy & calling settings (`settings`), Suppression & opt-out (`suppression`), Import / export (`import_export`), Setup wizard (`setup`), Profile (`profile`) | `/settings*`, `/suppression*`, `/contacts/import/*`, `/contacts/export` |
+| System Status | Health, logs & audit (`logs`), Workers (`workers`), Backup & restore (`backup`) | `/health`, `/audit`, `/system/workers*`, `/backup*` |
+| Settings | Privacy & calling settings (`settings`), Users & Roles (`users`, admin only), Suppression & opt-out (`suppression`), Import / export (`import_export`), Setup wizard (`setup`), Profile (`profile`) | `/settings*`, `/users*`, `/auth/roles`, `/suppression*`, `/contacts/import/*`, `/contacts/export` |
 
 ### Dashboard
 Greeting "Good morning/afternoon/evening, <operator>!". The subtitle says **"Your AI Sales Agent is ready"** only when
@@ -147,6 +147,60 @@ dialog with transcript, events and notes.
   valid/invalid/duplicate counts → duplicate policy → commit; export CSV/XLSX). Setup wizard re-run. **Profile**: the
   local operator ("Local operator — no cloud account"); there is no sign-in, Google/Microsoft login, plan or billing.
 
+### Users, roles and "Switch user"
+The desktop always starts as the built-in **owner** (admin) through the local token. Settings › **Users & Roles**
+(admin only; the tab is hidden for other roles) creates local users (username `a-z0-9._-`, display name, role
+admin / manager / operator / viewer, PIN 6–12 digits that is not repeated or sequential — validated before sending),
+edits role/display name, disables/enables, resets PINs and deletes users, and shows the read-only permission matrix
+from `/auth/roles`. The header avatar menu (▾) has **Switch user…** (PIN sign-in → `POST /auth/login`; every request
+then uses the user's JWT and the desktop WebSocket reconnects with `?token=<jwt>`) and **Return to owner** (logs the
+user out and goes back to the local token). The chip next to the name shows `actor · role`.
+Actions the current role lacks (from `/auth/whoami` permissions `'<area>:read'` / `'<area>:write'`, `'*'` = all) are
+disabled with the tooltip "Your role (<role>) can't do this"; screens the role cannot read show a red notice instead of
+data. If the backend still answers 403 the message reads "Your role (<role>) can't do this — …". **EMERGENCY STOP stays
+enabled for every role**; clearing it needs `calls:write`.
+
+### Background workers and notifications
+System Status › **Workers** lists the call-queue dispatcher, campaign engine, follow-up scheduler and daily report with
+runs, errors, items, last run, duration, last error/result and enabled state (`/system/workers`), plus the AI and speech
+job queues. **Run now** executes one cycle; **Disable/Enable** pauses a schedule until the backend restarts.
+Backend `event` envelopes on the desktop WebSocket (`queue.ready`, `queue.blocked`, `campaign.jobs_created`,
+`campaign.completed`, `followup.due`, `followup.created`, `report.ready`, `worker.error`) appear as a notification in
+the header/status bar and in the **bell** menu with an unread count; the matching screen (Call queue, Campaigns,
+Follow-ups, Reports, Workers) refreshes if it is open.
+
+### Additions per screen
+* **Dashboard** – the metric cards show real deltas from `comparisons` ("+12% from last week", "-50% from yesterday",
+  "new" / "+N added this week" when the previous period was 0, nothing when both are 0) and a 7-day prospect sentiment
+  row (positive / neutral / negative / unknown counts).
+* **Campaigns** – gold **▶ Start Campaign** (authorizes if draft, activates, runs the campaign engine once and reports
+  how many jobs it created), **Pause**, "Enable follow-up" toggle with "follow-up after N days" (1–60) in create/edit,
+  and a progress bar from `stats.progress_percent`.
+* **Follow-ups** – List and **Calendar** tabs; the month view (previous / next / today) shows per-day counts with a gold
+  dot for open, red for overdue and ✓ for done; clicking a day lists its follow-ups.
+* **Reports** – **Daily reports** panel: list of generated days, **Generate now** for a chosen date, **Open** (saved to
+  the temp folder and opened with the default app) or **Save as…** for `report.html`, `summary.json`, `calls.csv`.
+  Settings keys `reports.daily_enabled` and `reports.daily_at` (HH:MM, validated) control the schedule.
+* **Call Console** – each prospect line is tagged and coloured with its sentiment, and an overall **sentiment** chip
+  sits next to the state chip. After the outcome is saved a **Call Summary** card shows duration, result, sentiment,
+  key points, knowledge used, next action and notes (`/calls/{id}/summary`, built deterministically from the transcript);
+  the same summary is the first tab of the Call history detail dialog.
+* **Live transcription (PC microphone) – audio is not stored** – off by default. It requires the setting
+  `privacy.allow_live_transcription` (warning dialog when enabling), a live call, and the operator ticking "I read the
+  disclosure to the prospect" and "The prospect agreed" in a dialog that shows `privacy.recording_disclosure_text`
+  (`POST /calls/{id}/transcription-consent`). Audio is captured with `sounddevice` (PortAudio) at 16 kHz mono PCM16 and
+  streamed to `/api/v1/ws/transcribe`; a mic chip shows listening / speech / error, final text lines are appended with
+  their sentiment, and the speaker can be switched between prospect and operator. If PortAudio or the microphone is
+  missing the card says so plainly.
+* **AI Settings › diagnostics** – the chat test now streams tokens from `/ai/chat-stream` (SSE) as they arrive, with a
+  **Cancel** button (`/system/ai-jobs/{id}/cancel`) and first-token / total latency when done.
+* **AI model manager** – models with a `license_warning` (qwen2.5:3b, Qwen Research License, NON-COMMERCIAL) show the
+  warning and need a second checkbox ("I confirm I have permission…") before Pull is enabled. Whisper default is `base`.
+* **Knowledge Base** – import accepts .txt, .md, .csv, **.pdf and .docx** (15 MB limit checked before upload).
+* **Contacts** – new **Category** field (default "Gym / Fitness", editable list) in create/edit/detail and a table column.
+* **System Status / setup wizard** – a chip shows "Database: encrypted (AES-256)" when SQLCipher is active, otherwise
+  "NOT encrypted — …". Backups always ask for a passphrase when the database is encrypted.
+
 ## 4. Emergency stop
 
 The red **EMERGENCY STOP** button (header, every screen) and **Ctrl+Shift+X** act immediately, without a confirmation
@@ -169,6 +223,7 @@ pricing facts.
 | --- | --- |
 | Ctrl+Shift+X | EMERGENCY STOP |
 | Ctrl+K | focus the header search |
+| header ▾ | Switch user… / Return to owner / Profile |
 | Ctrl+1 … Ctrl+9 | first nine sidebar entries (Dashboard … Devices) |
 | F5 | refresh the current screen |
 | Enter (Call Console utterance box) | send the prospect's words / get the next agent line |
@@ -232,7 +287,13 @@ its key widgets; navigation groups cover all screens; the brand QSS is applied v
 AI Offline without a model); the contact dialog validates and creates a contact that appears in the table; filter chips
 and global search; a manual call job → dispatch → live console (Connected, script greeting) → outcome → history; the
 emergency stop button sets `calling.emergency_stop_active`; script overrides reject digits and save a pending document;
-simulated audio rows cannot be confirmed; Profile has no cloud account. The tests skip cleanly when PySide6 is missing.
+simulated audio rows cannot be confirmed; Profile has no cloud account. `test_features.py` covers the blueprint
+features: users/roles (create a viewer through the dialog, PIN sign-in, JWT + WebSocket reconnect, write actions locked,
+403 wording, emergency stop still enabled, return to owner), workers run/disable, event envelopes → toast + bell,
+campaign start/pause/follow-up fields/progress, follow-up calendar, daily report generate/open/save, dashboard deltas
+and sentiment, call sentiment + summary (console and history), the live-transcription gate + consent + streaming with a
+synthetic audio source, SSE chat streaming, the qwen2.5 licence gate, PDF/DOCX import filter, contact category and the
+database-encryption chip. The tests skip cleanly when PySide6 is missing.
 
 ```powershell
 $env:QT_QPA_PLATFORM = "offscreen"; python -m pytest tests/ui -q
@@ -242,5 +303,6 @@ $env:QT_QPA_PLATFORM = "offscreen"; python -m pytest tests/ui -q
 
 The app was developed and tested headless on Linux. The following need a check on a Windows 11 PC: DPAPI token reading
 by the desktop, `CREATE_NO_WINDOW` for the backend child, the PyInstaller build and the frozen backend path, the Inno
-Setup uninstall checkbox, Nirmala UI glyph fallback, `winsound` TTS playback (QtMultimedia is not in
+Setup uninstall checkbox, Nirmala UI glyph fallback, microphone capture with sounddevice/PortAudio (the container
+has no PortAudio, so the transcription test feeds synthetic PCM frames), `winsound` TTS playback (QtMultimedia is not in
 PySide6-Essentials, so the app falls back to `winsound`), high-DPI scaling and the "Open data folder" button.

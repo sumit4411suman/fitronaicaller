@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLineEdit, QTreeWidget, QTreeWidgetItem, QWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPushButton, QTabWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.widgets import DANGER, GOLD, SUCCESS, TEXT2, WARNING, EmptyState, FormDialog, button, caption, combo, datetime_edit, fmt_dt, parse_dt
@@ -59,13 +59,135 @@ class FollowupsScreen(BaseScreen):
         self.tree.setAccessibleName("Follow-ups grouped by day")
         self.tree.setAlternatingRowColors(True)
         self.tree.itemDoubleClicked.connect(lambda *_: self.open_contact())
-        self.root.addWidget(self.tree, 1)
         self.empty = EmptyState("No open follow-ups. Schedule one here or from a call outcome.")
-        self.root.addWidget(self.empty)
+        self.views = QTabWidget()
+        lw = QWidget()
+        ll = QVBoxLayout(lw)
+        ll.addWidget(self.tree, 1)
+        ll.addWidget(self.empty)
+        self.views.addTab(lw, "List")
+        self.views.addTab(self._build_calendar(), "Calendar")
+        self.views.currentChanged.connect(lambda i: i == 1 and self.load_month())
+        self.root.addWidget(self.views, 1)
         self.contacts: dict[str, dict] = {}
+
+    # ------------------------------------------------------------------ month calendar
+    def _build_calendar(self) -> QWidget:
+        now = datetime.now()
+        self.month = (now.year, now.month)
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        nav = QHBoxLayout()
+        nav.addWidget(button("◀ Previous", None, lambda: self._shift_month(-1)))
+        self.month_lbl = QLabel("")
+        self.month_lbl.setObjectName("calendar_month")
+        self.month_lbl.setStyleSheet("font-size: 16px; font-weight: 700;")
+        nav.addWidget(self.month_lbl)
+        nav.addWidget(button("Next ▶", None, lambda: self._shift_month(1)))
+        nav.addWidget(button("Today", None, self._this_month))
+        nav.addStretch(1)
+        legend = QLabel(f"<span style='color:{GOLD}'>●</span> open &nbsp;&nbsp; <span style='color:{DANGER}'>●</span> overdue &nbsp;&nbsp; ✓ done")
+        legend.setProperty("role", "caption")
+        nav.addWidget(legend)
+        lay.addLayout(nav)
+        self.cal_grid = QGridLayout()
+        self.cal_grid.setSpacing(4)
+        for i, d in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
+            h = caption(d, wrap=False)
+            h.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            h.setFixedHeight(22)
+            self.cal_grid.addWidget(h, 0, i)
+        self.cal_grid.setRowStretch(0, 0)
+        for r in range(1, 7):
+            self.cal_grid.setRowStretch(r, 1)
+        self.day_buttons: list[QPushButton] = []
+        gw = QWidget()
+        gw.setLayout(self.cal_grid)
+        lay.addWidget(gw, 3)
+        self.day_title = QLabel("Click a day to see its follow-ups")
+        self.day_title.setStyleSheet("font-weight: 700;")
+        lay.addWidget(self.day_title)
+        self.day_list = QListWidget()
+        self.day_list.setObjectName("calendar_day_list")
+        self.day_list.setMaximumHeight(160)
+        lay.addWidget(self.day_list, 1)
+        self.cal_data: dict = {}
+        return w
+
+    def _this_month(self) -> None:
+        now = datetime.now()
+        self.month = (now.year, now.month)
+        self.load_month()
+
+    def _shift_month(self, delta: int) -> None:
+        y, m = self.month
+        m += delta
+        y, m = (y + (m - 1) // 12, (m - 1) % 12 + 1)
+        self.month = (y, m)
+        self.load_month()
+
+    def load_month(self) -> None:
+        y, m = self.month
+        self.run(lambda: self.api.get("/followups/calendar", month=f"{y:04d}-{m:02d}"), self._show_month)
+
+    def _show_month(self, cal: dict) -> None:
+        import calendar as _cal
+
+        self.cal_data = cal
+        y, m = (int(x) for x in cal["month"].split("-"))
+        self.month = (y, m)
+        self.month_lbl.setText(f"{_cal.month_name[m]} {y}")
+        for b in self.day_buttons:
+            self.cal_grid.removeWidget(b)
+            b.deleteLater()
+        self.day_buttons = []
+        first, n = int(cal.get("first_weekday", 0)), int(cal.get("days_in_month", 30))
+        today = datetime.now().date().isoformat()
+        for day in range(1, n + 1):
+            key = f"{y:04d}-{m:02d}-{day:02d}"
+            items = (cal.get("days") or {}).get(key, [])
+            open_n = sum(1 for i in items if i.get("status") == "open" and not i.get("overdue"))
+            over_n = sum(1 for i in items if i.get("overdue") and i.get("status") == "open")
+            done_n = len(items) - open_n - over_n
+            parts = []
+            if open_n:
+                parts.append(f"<span style='color:{GOLD}'>●</span> {open_n}")
+            if over_n:
+                parts.append(f"<span style='color:{DANGER}'>●</span> {over_n}")
+            if done_n:
+                parts.append(f"✓ {done_n}")
+            b = QPushButton()
+            b.setObjectName(f"day_{key}")
+            b.setMinimumHeight(54)
+            b.setAccessibleName(f"{key}: {len(items)} follow-up(s), {over_n} overdue")
+            lbl = QLabel(f"<b>{day}</b><br>{'  '.join(parts)}")
+            lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            lbl.setStyleSheet("background: transparent;")
+            bl = QVBoxLayout(b)
+            bl.setContentsMargins(6, 4, 6, 4)
+            bl.addWidget(lbl)
+            border = DANGER if over_n else (GOLD if open_n else "#E6E2D6")
+            b.setStyleSheet(f"QPushButton {{ text-align: left; border: {'2px' if key == today else '1px'} solid {border}; border-radius: 8px; background: #FFFFFF; }}")
+            b.setProperty("readonly_ok", True)
+            b.clicked.connect(lambda _=False, k=key: self.show_day(k))
+            pos = first + day - 1
+            self.cal_grid.addWidget(b, 1 + pos // 7, pos % 7)
+            self.day_buttons.append(b)
+
+    def show_day(self, key: str) -> None:
+        items = (self.cal_data.get("days") or {}).get(key, [])
+        self.day_title.setText(f"{key}: {len(items)} follow-up(s)")
+        self.day_list.clear()
+        for i in items:
+            flag = "OVERDUE · " if i.get("overdue") and i.get("status") == "open" else ""
+            self.day_list.addItem(f"{i.get('time', '')}  {flag}{i.get('kind')} · {i.get('status')} · {i.get('business_name')}")
+        if not items:
+            self.day_list.addItem("No follow-ups on this day")
 
     def refresh(self) -> None:
         self.run(lambda: (self.api.get("/followups", include_done=self.include_done.isChecked()), self.api.get("/contacts", limit=500)), self._show)
+        if self.views.currentIndex() == 1:
+            self.load_month()
 
     def _show(self, res: tuple) -> None:
         fus, page = res

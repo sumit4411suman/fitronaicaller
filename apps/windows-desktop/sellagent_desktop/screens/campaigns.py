@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QAbstractItemView, QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QSpinBox, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QAbstractItemView, QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QProgressBar, QSpinBox, QSplitter, QVBoxLayout, QWidget
 from PySide6.QtCore import Qt
 
 from sellagent_desktop.screens.base import BaseScreen
@@ -38,6 +38,17 @@ class CampaignDialog(FormDialog):
         rc = QCheckBox("Only call contacts with recorded consent")
         rc.setChecked(bool(e.get("requires_consent", True)))
         self.add_field("requires_consent", "Consent", rc)
+        af = QCheckBox("Enable follow-up (schedule a follow-up call automatically after no-answer / callback outcomes)")
+        af.setChecked(bool(e.get("auto_followup", True)))
+        af.setObjectName("auto_followup")
+        self.add_field("auto_followup", "Follow-up", af)
+        fd = QSpinBox()
+        fd.setRange(1, 60)
+        fd.setSuffix(" day(s) later")
+        fd.setValue(int(e.get("followup_after_days") or 2))
+        self.add_field("followup_after_days", "Follow-up after", fd)
+        af.toggled.connect(fd.setEnabled)
+        fd.setEnabled(af.isChecked())
 
     def validate(self) -> bool:
         ok = super().validate()
@@ -107,7 +118,7 @@ class CampaignsScreen(BaseScreen):
         left = QWidget()
         ll = QVBoxLayout(left)
         ll.setContentsMargins(0, 0, 0, 0)
-        self.table = DataTable([("Name", "name"), ("Status", "status"), ("Mode", "calling_mode"), ("Lang", "language"), ("Consent req.", "requires_consent"), ("Max/day", "max_calls_per_day"), ("Updated", lambda r: fmt_dt(r.get("updated_at")))])
+        self.table = DataTable([("Name", "name"), ("Status", "status"), ("Mode", "calling_mode"), ("Lang", "language"), ("Consent req.", "requires_consent"), ("Follow-up", lambda r: f"{r.get('followup_after_days')} d" if r.get("auto_followup") else "off"), ("Max/day", "max_calls_per_day"), ("Updated", lambda r: fmt_dt(r.get("updated_at")))])
         self.table.setObjectName("campaigns_table")
         self.table.itemSelectionChanged.connect(self._select)
         ll.addWidget(self.table, 1)
@@ -125,6 +136,16 @@ class CampaignsScreen(BaseScreen):
         tw = QWidget()
         tw.setLayout(self.trans_row)
         self.detail.add(tw)
+        sp = QHBoxLayout()
+        self.start_btn = button("▶ Start Campaign", "primary", self.start_campaign, tooltip="Authorizes (if draft), activates and lets the campaign engine create the first call jobs")
+        self.start_btn.setObjectName("start_campaign_btn")
+        self.pause_btn = button("Pause", None, self.pause_campaign)
+        sp.addWidget(self.start_btn)
+        sp.addWidget(self.pause_btn)
+        sp.addStretch(1)
+        spw = QWidget()
+        spw.setLayout(sp)
+        self.detail.add(spw)
         act = QHBoxLayout()
         self.edit_btn = button("Edit", None, self.edit_campaign)
         self.add_btn = button("Add contacts from CRM…", None, self.add_contacts)
@@ -138,6 +159,11 @@ class CampaignsScreen(BaseScreen):
         self.detail.add(self.gate_note)
         rl.addWidget(self.detail)
         stats = Card("Membership & outcomes")
+        self.progress = QProgressBar()
+        self.progress.setObjectName("campaign_progress")
+        self.progress.setRange(0, 1000)
+        self.progress.setFormat("%p% of reachable contacts finished")
+        stats.add(self.progress)
         self.stats_grid = KeyValueGrid()
         stats.add(self.stats_grid)
         rl.addWidget(stats)
@@ -164,7 +190,7 @@ class CampaignsScreen(BaseScreen):
         if self.current:
             for i, c in enumerate(camps):
                 if c["id"] == self.current["id"]:
-                    self.table.selectRow(i)
+                    self.table.select_data_row(i)
                     break
         self._select()
         if self._open_new:
@@ -180,13 +206,16 @@ class CampaignsScreen(BaseScreen):
                 item.widget().deleteLater()
         for b in (self.edit_btn, self.add_btn):
             b.setEnabled(row is not None)
+        st = row["status"] if row else None
+        self.start_btn.setEnabled(st in ("draft", "authorized", "paused"))
+        self.pause_btn.setEnabled(st == "active")
         if not row:
             self.detail_grid.set_rows([("", "Select a campaign")])
             self.stats_grid.set_rows([])
             self.members.set_rows([])
             self.gate_note.setText("")
             return
-        self.detail_grid.set_rows([(k.replace("_", " "), fmt_dt(row.get(k)) if k.endswith("_at") else row.get(k)) for k in ("id", "name", "description", "status", "calling_mode", "language", "requires_consent", "max_calls_per_day", "max_attempts_per_contact", "quiet_hours_start", "quiet_hours_end", "authorized_by", "authorized_at", "starts_at", "ends_at", "created_at")])
+        self.detail_grid.set_rows([(k.replace("_", " "), fmt_dt(row.get(k)) if k.endswith("_at") else row.get(k)) for k in ("id", "name", "description", "status", "calling_mode", "language", "requires_consent", "max_calls_per_day", "max_attempts_per_contact", "quiet_hours_start", "quiet_hours_end", "auto_followup", "followup_after_days", "authorized_by", "authorized_at", "starts_at", "ends_at", "created_at")])
         for target in TRANSITIONS.get(row["status"], []):
             b = button(f"→ {target}", "primary" if target in ("authorized", "active") else None, lambda _=False, t=target: self.transition(t))
             self.trans_row.addWidget(b)
@@ -198,6 +227,9 @@ class CampaignsScreen(BaseScreen):
 
     def _show_stats(self, res: tuple) -> None:
         st, members = res
+        pct = float(st.get("progress_percent") or 0.0)
+        self.progress.setValue(int(round(pct * 10)))
+        self.progress.setFormat(f"{pct:.1f}% of reachable contacts finished")
         rows = [(k, st.get(k)) for k in ("total", "pending", "queued", "called", "done", "excluded")]
         rows += [(f"jobs {k}", v) for k, v in (st.get("jobs") or {}).items()]
         rows += [(f"outcome {k}", v) for k, v in (st.get("outcomes") or {}).items()]
@@ -219,6 +251,26 @@ class CampaignsScreen(BaseScreen):
             if self.current["status"] == "authorized" and not confirm(self, "Edit authorized campaign", "Editing resets the campaign to draft; you will need to authorize it again.", "Edit anyway"):
                 return
             self.run(lambda: self.api.patch(f"/campaigns/{cid}", body), lambda _: (self.toast("Campaign saved", "success"), self.refresh()))
+
+    def start_campaign(self) -> None:
+        if not self.current:
+            return
+        cid, name = self.current["id"], self.current["name"]
+        if not confirm(self, "Start campaign", f"Start '{name}'? You authorize these promotional calls; the campaign engine queues eligible contacts (quiet hours, consent and limits still apply).", "Start"):
+            return
+        self.run(lambda: self.api.post(f"/campaigns/{cid}/start"), self._started)
+
+    def _started(self, r: dict) -> None:
+        eng = r.get("engine") or {}
+        msg = f"Campaign started — engine created {eng.get('created', 0)} call job(s)" if not eng.get("skipped") else f"Campaign active — engine skipped: {eng.get('skipped')}"
+        self.toast(msg, "success")
+        self.refresh()
+
+    def pause_campaign(self) -> None:
+        if not self.current:
+            return
+        cid = self.current["id"]
+        self.run(lambda: self.api.post(f"/campaigns/{cid}/pause"), lambda _: (self.toast("Campaign paused", "warning"), self.refresh()))
 
     def transition(self, target: str) -> None:
         if not self.current:

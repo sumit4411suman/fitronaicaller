@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QPlainTextEdit, QTabWidget
 
 from sellagent_desktop import APP_VERSION
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import DataTable, EmptyState, KeyValueGrid, button, caption, combo, fmt_dt, pretty_json
+from sellagent_desktop.widgets import DataTable, EmptyState, KeyValueGrid, button, caption, chip, combo, fmt_dt, pretty_json, set_chip
 
 
 def tail(path: Path, lines: int = 300) -> str:
@@ -28,6 +28,9 @@ class LogsScreen(BaseScreen):
     key, title = "logs", "Logs, health & version"
 
     def build(self) -> None:
+        self.db_chip = chip("Database: checking", "neutral")
+        self.db_chip.setObjectName("db_encryption_chip")
+        self.root.addWidget(self.db_chip)
         top = QHBoxLayout()
         self.versions = KeyValueGrid()
         top.addWidget(self.versions, 1)
@@ -82,6 +85,11 @@ class LogsScreen(BaseScreen):
         self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum())
         self.ctx.health_cache.update(h)
         db = h.get("database") or {}
+        if db.get("encrypted"):
+            set_chip(self.db_chip, "Database: encrypted (AES-256)", "success")
+        else:
+            set_chip(self.db_chip, f"Database: NOT encrypted — {db.get('encryption') or 'encryption unavailable'}", "warning")
+        self.db_chip.setToolTip(str(db.get("encryption")))
         self.versions.set_rows([
             ("Desktop app", APP_VERSION), ("Backend", f"{ping.get('app')} {ping.get('version')}"), ("Protocol", ping.get("protocol_version")), ("Backend URL", self.ctx.backend_url),
             ("Backend process", "started by this app" if self.ctx.backend_owned else "external (SELLAGENT_BACKEND_URL)"), ("Python (backend)", h.get("python")), ("Platform", h.get("platform")),

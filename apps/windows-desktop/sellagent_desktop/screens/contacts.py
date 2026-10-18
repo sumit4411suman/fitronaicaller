@@ -14,6 +14,7 @@ LEAD_STAGES = ("new", "contacted", "interested", "demo_scheduled", "converted", 
 CONSENT = ("unknown", "granted", "denied", "withdrawn")
 PHONE_RE = re.compile(r"^[+\d][\d\s\-()]{3,39}$")
 PAGE = 50
+CATEGORIES = ["Gym / Fitness", "Yoga studio", "CrossFit / functional", "Martial arts", "Dance studio", "Sports club", "Other"]
 FILTER_CHIPS = [("all", "All"), ("not_called", "Not called"), ("followup", "Follow-up"), ("interested", "Interested"), ("dnc", "Do not call")]
 
 
@@ -26,6 +27,12 @@ class ContactDialog(FormDialog):
         e = existing or {}
         self.add_field("business_name", "Business / gym name", QLineEdit(e.get("business_name", "")), required=True)
         self.add_field("contact_person", "Contact person", QLineEdit(e.get("contact_person") or ""))
+        cat = QComboBox()
+        cat.setEditable(True)
+        cat.addItems(CATEGORIES)
+        cat.setCurrentText(e.get("category") or "Gym / Fitness")
+        cat.setObjectName("category")
+        self.add_field("category", "Category", cat, help_text="Business type; default Gym / Fitness")
         ph = QLineEdit(e.get("phone_raw") or e.get("phone_e164") or "")
         ph.setPlaceholderText("+91 98765 43210")
         self.add_field("phone", "Phone", ph, required=True, help_text="Indian numbers may be entered without +91; stored as E.164")
@@ -62,6 +69,7 @@ class ContactDialog(FormDialog):
     def payload(self) -> dict:
         v = self.values()
         v["tags"] = [t.strip() for t in str(v["tags"]).split(",") if t.strip()]
+        v["category"] = (self.fields["category"].currentText().strip() or "Gym / Fitness")[:50]
         for k in ("contact_person", "email", "city", "district", "state", "source_url", "lead_source", "notes"):
             if v[k] == "":
                 v[k] = None
@@ -139,7 +147,7 @@ class ContactsScreen(BaseScreen):
 
         self.table = DataTable([
             ("Business", "business_name"), ("Person", "contact_person"), ("Phone", "phone_e164"), ("City", "city"), ("Status", "lead_stage"),
-            ("Consent", "consent_status"), ("Last contact", lambda r: fmt_dt(r.get("last_contact_at"))), ("Next follow-up", lambda r: fmt_dt(r.get("next_followup_at"))), ("Actions", lambda r: ""),
+            ("Category", "category"), ("Consent", "consent_status"), ("Last contact", lambda r: fmt_dt(r.get("last_contact_at"))), ("Next follow-up", lambda r: fmt_dt(r.get("next_followup_at"))), ("Actions", lambda r: ""),
         ])
         self.table.setObjectName("contacts_table")
         self.table.setSortingEnabled(False)  # server-side sort; cell widgets (chips/actions) must stay aligned
@@ -196,10 +204,10 @@ class ContactsScreen(BaseScreen):
             al.setSpacing(4)
             al.addWidget(button("Call", "primary", lambda c=r: self.ctx.navigate("call_queue", contact_id=c["id"]), tooltip="Create a call job for this contact"))
             al.addWidget(button("Open", None, lambda c=r: self.ctx.navigate("contact_detail", contact_id=c["id"])))
-            self.table.setCellWidget(i, 8, acts)
+            self.table.setCellWidget(i, 9, acts)
             self.table.setRowHeight(i, 40)
         self.table.horizontalHeader().setStretchLastSection(False)
-        self.table.setColumnWidth(8, 150)
+        self.table.setColumnWidth(9, 150)
         self.empty.setVisible(not rows)
         self.page_lbl.setText(f"{offset + 1 if rows else 0}–{offset + len(rows)} of {self.total}")
         self.prev_btn.setEnabled(offset > 0)

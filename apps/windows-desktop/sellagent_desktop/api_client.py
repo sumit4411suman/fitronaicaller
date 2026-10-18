@@ -28,7 +28,11 @@ class ApiError(Exception):
         super().__init__(error)
         self.status, self.error, self.code, self.request_id, self.detail = status, error, code, request_id, detail
 
+    role: str | None = None  # filled by ApiClient so 403s can name the current role
+
     def __str__(self) -> str:  # shown in toasts
+        if self.status == 403:
+            return f"Your role ({self.role or 'unknown'}) can't do this — {self.error}"
         return f"{self.error} [{self.code}, HTTP {self.status}]"
 
     @classmethod
@@ -46,6 +50,8 @@ class ApiClient:
     def __init__(self, base_url: str, token: str, timeout: float = DEFAULT_TIMEOUT):
         self.base_url = base_url.rstrip("/")
         self.token = token
+        self.owner_token = token  # the local (owner/admin) token; ``token`` may be a user's JWT after "Switch user"
+        self.role: str | None = "admin"
         self.timeout = timeout
         self._client = httpx.Client(base_url=self.base_url, timeout=timeout, headers={"User-Agent": f"SellAgentDesktop/{APP_VERSION}"})
         self._lock = threading.Lock()
@@ -65,7 +71,9 @@ class ApiClient:
         except httpx.HTTPError as exc:
             raise ApiError(0, f"cannot reach backend at {self.base_url}: {exc.__class__.__name__}", "connection_error") from exc
         if r.status_code >= 400:
-            raise ApiError.from_response(r)
+            err = ApiError.from_response(r)
+            err.role = self.role
+            raise err
         if raw:
             return r
         if not r.content:
@@ -98,10 +106,50 @@ class ApiClient:
             name = cd.split("filename=", 1)[1].strip().strip('"')
         return r.content, name
 
-    def ws_url(self, path: str = "/api/v1/ws/desktop") -> str:
+    def ws_url(self, path: str = "/api/v1/ws/desktop", **params: str) -> str:
+        from urllib.parse import urlencode
+
         scheme = "wss" if self.base_url.startswith("https") else "ws"
         host = self.base_url.split("://", 1)[1]
-        return f"{scheme}://{host}{path}?token={self.token}"
+        return f"{scheme}://{host}{path}?{urlencode({'token': self.token, **params})}"
+
+    @property
+    def is_owner(self) -> bool:
+        return self.token == self.owner_token
+
+    def stream_sse(self, path: str, json: Any, on_event: Callable[[str, Any], None], cancelled: Callable[[], bool] = lambda: False, timeout: float = LONG_TIMEOUT) -> None:
+        """Blocking SSE reader (run it in a worker thread). Calls ``on_event(event_name, data)`` for every event;
+        plain ``data:`` lines are delivered as event "message"."""
+        import json as _json
+
+        if not path.startswith("/api/"):
+            path = "/api/v1" + path
+        try:
+            with self._client.stream("POST", path, json=json, headers={**self._headers(), "Accept": "text/event-stream"}, timeout=httpx.Timeout(timeout, connect=10)) as r:
+                if r.status_code >= 400:
+                    r.read()
+                    err = ApiError.from_response(r)
+                    err.role = self.role
+                    raise err
+                event, data_lines = "message", []
+                for line in r.iter_lines():
+                    if cancelled():
+                        break
+                    if line == "":
+                        if data_lines:
+                            raw = "\n".join(data_lines)
+                            try:
+                                payload: Any = _json.loads(raw)
+                            except ValueError:
+                                payload = raw
+                            on_event(event, payload)
+                        event, data_lines = "message", []
+                    elif line.startswith("event:"):
+                        event = line[6:].strip()
+                    elif line.startswith("data:"):
+                        data_lines.append(line[5:].lstrip())
+        except httpx.HTTPError as exc:
+            raise ApiError(0, f"stream failed: {exc.__class__.__name__}", "connection_error") from exc
 
     def close(self) -> None:
         self._client.close()
@@ -173,6 +221,13 @@ def call_async(fn: Callable[[], Any], on_done: Callable[[Any], None] | None = No
     with _inflight_lock:
         _inflight += 1
     QThreadPool.globalInstance().start(_Job(fn, sig))
+
+
+def inflight_add(n: int) -> None:
+    """Used by long-running QThreads (streams, transcription) so ``wait_for_idle`` waits for them too."""
+    global _inflight
+    with _inflight_lock:
+        _inflight += n
 
 
 def wait_for_idle(timeout_ms: int = 15000, settle_ms: int = 150) -> bool:

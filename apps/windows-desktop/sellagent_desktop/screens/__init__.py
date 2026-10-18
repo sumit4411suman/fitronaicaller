@@ -31,7 +31,17 @@ SCREEN_SPECS: list[tuple[str, str, str, str]] = [
     ("backup", "Backup & restore", "backup", "BackupScreen"),
     ("logs", "Health, logs & audit", "logs", "LogsScreen"),
     ("profile", "Profile", "profile", "ProfileScreen"),
+    ("users", "Users & Roles", "users", "UsersScreen"),
+    ("workers", "Workers", "workers", "WorkersScreen"),
 ]
+
+# backend permission area per screen (GET needs '<area>:read', changes need '<area>:write')
+SCREEN_AREAS: dict[str, str] = {
+    "setup": "settings", "models": "ai", "dashboard": "reports", "contacts": "contacts", "contact_detail": "contacts", "import_export": "contacts",
+    "campaigns": "campaigns", "eligibility": "contacts", "call_queue": "calls", "live_call": "calls", "call_history": "calls", "diagnostics": "ai",
+    "knowledge": "knowledge", "scripts": "knowledge", "followups": "followups", "analytics": "reports", "devices": "devices", "audio_tests": "audio_tests",
+    "suppression": "suppression", "settings": "settings", "backup": "backup", "logs": "health", "profile": "settings", "users": "users", "workers": "system",
+}
 
 # (nav key, sidebar label, [screen keys in tab order])
 NAV_GROUPS: list[tuple[str, str, list[str]]] = [
@@ -44,8 +54,8 @@ NAV_GROUPS: list[tuple[str, str, list[str]]] = [
     ("knowledge", "Knowledge Base", ["knowledge"]),
     ("ai", "AI Settings", ["models", "diagnostics", "scripts"]),
     ("devices", "Devices", ["devices", "audio_tests"]),
-    ("system", "System Status", ["logs", "backup"]),
-    ("settings", "Settings", ["settings", "suppression", "import_export", "setup", "profile"]),
+    ("system", "System Status", ["logs", "workers", "backup"]),
+    ("settings", "Settings", ["settings", "users", "suppression", "import_export", "setup", "profile"]),
 ]
 
 

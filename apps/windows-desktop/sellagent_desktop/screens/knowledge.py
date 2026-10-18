@@ -70,7 +70,7 @@ class KnowledgeScreen(BaseScreen):
         bar.addWidget(self.status)
         bar.addWidget(self.category)
         bar.addWidget(button("New document", "primary", self.new_doc))
-        bar.addWidget(button("Import .txt/.md…", None, self.import_doc))
+        bar.addWidget(button("Import document…", None, self.import_doc, tooltip=".txt, .md, .csv, .pdf or .docx — up to 15 MB; imported as untrusted, pending review"))
         bar.addStretch(1)
         self.root.addLayout(bar)
         split = QSplitter(Qt.Orientation.Horizontal)
@@ -181,10 +181,13 @@ class KnowledgeScreen(BaseScreen):
             self.run(lambda: self.api.post("/knowledge", body), lambda d: (self.toast(f"Created '{d['title']}' (status {d['status']})", "success"), self.refresh()))
 
     def import_doc(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Import knowledge document", "", "Text (*.txt *.md *.csv)")
+        path, _ = QFileDialog.getOpenFileName(self, "Import knowledge document", "", "Documents (*.txt *.md *.csv *.pdf *.docx);;Text (*.txt *.md *.csv);;PDF (*.pdf);;Word (*.docx)")
         if not path:
             return
         p = Path(path)
+        if p.stat().st_size > 15 * 1024 * 1024:
+            self.toast("File is larger than 15 MB; split it or convert to text first", "error")
+            return
         data = p.read_bytes()
         cat = self.category.currentData() or "general"
         self.run(lambda: self.api.upload("/knowledge/import", p.name, data, params={"category": cat, "language": "en"}), lambda d: (self.toast(f"Imported as UNTRUSTED pending document with {len(d.get('injection_flags') or [])} flag(s)", "warning"), self.refresh()))

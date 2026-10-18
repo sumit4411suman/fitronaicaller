@@ -1,12 +1,13 @@
-"""Screen 5: contact detail & history (edit, permissions/consent, opt-out, eligibility, calls, notes, follow-ups)."""
+"""Screen 5: contact detail per the mockup — gold initials avatar, Call / Message (disabled) / Edit / More, lead-stage
+dropdown, tabs Details / Call History / Notes plus Permissions, Eligibility and Follow-ups."""
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPlainTextEdit, QScrollArea, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QMenu, QPlainTextEdit, QScrollArea, QTabWidget, QVBoxLayout, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.screens.contacts import ContactDialog
-from sellagent_desktop.widgets import Card, DataTable, EmptyState, FormDialog, KeyValueGrid, TextInputDialog, button, caption, combo, confirm, datetime_edit, fmt_dt, status_label
+from sellagent_desktop.screens.contacts import LEAD_STAGES, ContactDialog
+from sellagent_desktop.widgets import STAGE_CHIP, DataTable, EmptyState, FormDialog, KeyValueGrid, TextInputDialog, avatar, button, caption, chip, combo, confirm, datetime_edit, fmt_dt, set_chip, status_label
 
 
 class ConsentDialog(FormDialog):
@@ -37,19 +38,48 @@ class ContactDetailScreen(BaseScreen):
         self.contact_id: str | None = None
         self.contact: dict | None = None
         head = QHBoxLayout()
-        self.name_lbl = status_label("Select a contact from CRM contacts.")
-        self.name_lbl.setStyleSheet("font-size: 16px; font-weight: 600; color: #D4AF37;")
-        head.addWidget(self.name_lbl, 1)
+        self.avatar = avatar("")
+        head.addWidget(self.avatar)
+        col = QVBoxLayout()
+        self.name_lbl = status_label("Select a contact from Contacts.")
+        self.name_lbl.setStyleSheet("font-size: 18px; font-weight: 700;")
+        col.addWidget(self.name_lbl)
+        self.sub_lbl = caption("")
+        col.addWidget(self.sub_lbl)
+        chips = QHBoxLayout()
+        self.stage_chip = chip("—", "neutral")
+        self.consent_chip = chip("consent —", "neutral")
+        self.optout_chip = chip("OPTED OUT", "danger")
+        self.optout_chip.setVisible(False)
+        for c in (self.stage_chip, self.consent_chip, self.optout_chip):
+            chips.addWidget(c)
+        chips.addStretch(1)
+        col.addLayout(chips)
+        head.addLayout(col, 1)
+        act = QVBoxLayout()
+        row1 = QHBoxLayout()
+        self.call_btn = button("Call", "primary", lambda: self.contact and self.ctx.navigate("call_queue", contact_id=self.contact["id"]), tooltip="Create a call job")
+        self.msg_btn = button("Message", None, None, tooltip="No SMS/WhatsApp feature in SELL AGENT (voice only)")
+        self.msg_btn.setEnabled(False)
         self.edit_btn = button("Edit", None, self.edit_contact)
-        self.optout_btn = button("Opt-out", "danger", self.opt_out)
-        self.job_btn = button("Create call job", "primary", lambda: self.contact and self.ctx.navigate("call_queue", contact_id=self.contact["id"]))
-        for b in (self.edit_btn, self.job_btn, self.optout_btn):
-            head.addWidget(b)
+        self.more_btn = button("More ▾", None, self.more_menu)
+        for b in (self.call_btn, self.msg_btn, self.edit_btn, self.more_btn):
+            row1.addWidget(b)
+        act.addLayout(row1)
+        row2 = QHBoxLayout()
+        row2.addWidget(caption("Lead stage"))
+        self.stage_combo = combo([(s, s) for s in LEAD_STAGES])
+        self.stage_combo.setAccessibleName("Lead stage")
+        self.stage_combo.activated.connect(self.change_stage)
+        row2.addWidget(self.stage_combo, 1)
+        act.addLayout(row2)
+        head.addLayout(act)
         self.root.addLayout(head)
+        self.optout_btn = button("Opt-out", "danger", self.opt_out)  # kept for keyboard users; also in More
+        self.optout_btn.setVisible(False)
         self.tabs = QTabWidget()
         self.root.addWidget(self.tabs, 1)
 
-        # Overview
         ov = QWidget()
         ovl = QVBoxLayout(ov)
         self.grid = KeyValueGrid()
@@ -61,12 +91,30 @@ class ContactDetailScreen(BaseScreen):
         il.addStretch(1)
         sc.setWidget(inner)
         ovl.addWidget(sc)
-        self.tabs.addTab(ov, "Overview")
+        self.tabs.addTab(ov, "Details")
 
-        # Permissions
+        cl = QWidget()
+        cll = QVBoxLayout(cl)
+        self.calls_table = DataTable([("Started", lambda r: fmt_dt(r.get("started_at"))), ("State", "conversation_state"), ("Outcome", "outcome"), ("Detail", "outcome_detail"), ("Duration s", "duration_seconds"), ("Language", "language")])
+        self.calls_table.itemDoubleClicked.connect(lambda *_: self._open_call())
+        cll.addWidget(self.calls_table, 1)
+        self.calls_empty = EmptyState("No calls logged for this contact.")
+        cll.addWidget(self.calls_empty)
+        cll.addWidget(button("Open in call history", None, self._open_call))
+        self.tabs.addTab(cl, "Call History")
+
+        nt = QWidget()
+        ntl = QVBoxLayout(nt)
+        ntl.addWidget(caption("Free-text notes stored on the contact record."))
+        self.notes = QPlainTextEdit()
+        self.notes.setAccessibleName("Contact notes")
+        ntl.addWidget(self.notes, 1)
+        ntl.addWidget(button("Save notes", "primary", self.save_notes))
+        self.tabs.addTab(nt, "Notes")
+
         pm = QWidget()
         pml = QVBoxLayout(pm)
-        pml.addWidget(caption("Every consent decision is stored with its source and evidence. Eligibility uses the contact's consent_status summary, which the backend updates from these records."))
+        pml.addWidget(caption("Every consent decision is stored with its source and evidence; eligibility uses the summary consent_status."))
         self.perm_table = DataTable([("Recorded", lambda r: fmt_dt(r.get("recorded_at"))), ("Status", "status"), ("Channel", "channel"), ("Source", "source"), ("Evidence", "evidence"), ("By", "recorded_by"), ("Expires", lambda r: fmt_dt(r.get("expires_at")))])
         pml.addWidget(self.perm_table, 1)
         self.perm_empty = EmptyState("No permission records yet. Record consent before calling.")
@@ -74,7 +122,6 @@ class ContactDetailScreen(BaseScreen):
         pml.addWidget(button("Record consent / permission", "primary", self.add_consent))
         self.tabs.addTab(pm, "Permissions")
 
-        # Eligibility
         el = QWidget()
         ell = QVBoxLayout(el)
         self.elig_banner = status_label("")
@@ -85,49 +132,27 @@ class ContactDetailScreen(BaseScreen):
         ell.addStretch(1)
         self.tabs.addTab(el, "Eligibility")
 
-        # Calls
-        cl = QWidget()
-        cll = QVBoxLayout(cl)
-        self.calls_table = DataTable([("Started", lambda r: fmt_dt(r.get("started_at"))), ("State", "conversation_state"), ("Outcome", "outcome"), ("Detail", "outcome_detail"), ("Duration s", "duration_seconds"), ("Language", "language")])
-        self.calls_table.itemDoubleClicked.connect(lambda *_: self._open_call())
-        cll.addWidget(self.calls_table, 1)
-        self.calls_empty = EmptyState("No calls logged for this contact.")
-        cll.addWidget(self.calls_empty)
-        cll.addWidget(button("Open in call history", None, self._open_call))
-        self.tabs.addTab(cl, "Call history")
-
-        # Notes
-        nt = QWidget()
-        ntl = QVBoxLayout(nt)
-        ntl.addWidget(caption("Free-text notes stored on the contact record (PATCH /contacts/{id})."))
-        self.notes = QPlainTextEdit()
-        self.notes.setAccessibleName("Contact notes")
-        ntl.addWidget(self.notes, 1)
-        ntl.addWidget(button("Save notes", "primary", self.save_notes))
-        self.tabs.addTab(nt, "Notes")
-
-        # Follow-ups
         fu = QWidget()
         ful = QVBoxLayout(fu)
         self.fu_table = DataTable([("Due", lambda r: fmt_dt(r.get("due_at"))), ("Kind", "kind"), ("Status", "status"), ("Note", "note"), ("Completed", lambda r: fmt_dt(r.get("completed_at")))])
         ful.addWidget(self.fu_table, 1)
         self.fu_empty = EmptyState("No follow-ups scheduled.")
         ful.addWidget(self.fu_empty)
-        row = QHBoxLayout()
-        row.addWidget(button("Schedule follow-up", "primary", self.add_followup))
-        row.addWidget(button("Mark done", None, lambda: self._complete_fu("done")))
-        row.addWidget(button("Cancel follow-up", None, lambda: self._complete_fu("cancelled")))
-        row.addStretch(1)
-        ful.addLayout(row)
+        fr = QHBoxLayout()
+        fr.addWidget(button("Schedule follow-up", "primary", self.add_followup))
+        fr.addWidget(button("Mark done", None, lambda: self._complete_fu("done")))
+        fr.addWidget(button("Cancel follow-up", None, lambda: self._complete_fu("cancelled")))
+        fr.addStretch(1)
+        ful.addLayout(fr)
         self.tabs.addTab(fu, "Follow-ups")
-        self.empty = EmptyState("Open a contact from the CRM list (double-click or 'Open detail').")
+        self.empty = EmptyState("Open a contact from the Contacts list (double-click, 'Open detail' or the row's Open button).")
         self.root.addWidget(self.empty)
         self._set_enabled(False)
 
     def _set_enabled(self, on: bool) -> None:
         self.tabs.setVisible(on)
         self.empty.setVisible(not on)
-        for b in (self.edit_btn, self.optout_btn, self.job_btn):
+        for b in (self.edit_btn, self.more_btn, self.call_btn, self.stage_combo):
             b.setEnabled(on)
 
     def set_context(self, contact_id: str | None = None, **_: object) -> None:
@@ -145,12 +170,13 @@ class ContactDetailScreen(BaseScreen):
         c, perms, calls, fus = res
         self.contact = c
         self._set_enabled(True)
-        flags = []
-        if c.get("opted_out"):
-            flags.append("OPTED OUT")
-        if c.get("archived"):
-            flags.append("ARCHIVED")
-        self.name_lbl.setText(f"{c['business_name']} — {c['phone_e164']}" + (f"   [{' · '.join(flags)}]" if flags else ""))
+        self.avatar.setText((c.get("business_name") or "?")[:2].upper())
+        self.name_lbl.setText(c["business_name"] + (f" · {c['contact_person']}" if c.get("contact_person") else ""))
+        self.sub_lbl.setText(f"{c['phone_e164']} · {c.get('city') or ''} {c.get('state') or ''} · source {c.get('source_verification')}" + ("  · ARCHIVED" if c.get("archived") else ""))
+        set_chip(self.stage_chip, c.get("lead_stage", "").replace("_", " "), STAGE_CHIP.get(c.get("lead_stage", ""), "neutral"))
+        set_chip(self.consent_chip, f"consent {c.get('consent_status')}", {"granted": "success", "denied": "danger", "withdrawn": "danger"}.get(c.get("consent_status"), "warning"))
+        self.optout_chip.setVisible(bool(c.get("opted_out")))
+        self.stage_combo.setCurrentIndex(max(0, self.stage_combo.findData(c.get("lead_stage"))))
         self.grid.set_rows([(k.replace("_", " "), c.get(k) if not str(k).endswith("_at") else fmt_dt(c.get(k))) for k in ("id", "business_name", "contact_person", "phone_e164", "phone_raw", "email", "city", "district", "state", "country", "source_url", "source_verification", "lead_source", "lead_stage", "campaign_id", "consent_status", "opted_out", "opt_out_reason", "opted_out_at", "tags", "last_contact_at", "next_followup_at", "archived", "created_at", "updated_at")])
         self.perm_table.set_rows(perms)
         self.perm_empty.setVisible(not perms)
@@ -178,15 +204,43 @@ class ContactDetailScreen(BaseScreen):
         rows += [(f"check: {k}", v) for k, v in (e.get("checks") or {}).items()]
         self.elig_grid.set_rows(rows)
 
+    def more_menu(self) -> None:
+        if not self.contact:
+            return
+        m = QMenu(self)
+        m.addAction("Check eligibility & consent", lambda: self.ctx.navigate("eligibility", contact_id=self.contact["id"]))
+        m.addAction("Schedule follow-up", self.add_followup)
+        m.addAction("Record consent / permission", self.add_consent)
+        m.addSeparator()
+        m.addAction("Unarchive" if self.contact.get("archived") else "Archive", self.toggle_archive)
+        m.addAction("Opt-out (do not call)", self.opt_out)
+        m.exec(self.more_btn.mapToGlobal(self.more_btn.rect().bottomLeft()))
+
+    def change_stage(self) -> None:
+        if not self.contact:
+            return
+        stage, cid = self.stage_combo.currentData(), self.contact["id"]
+        if stage == self.contact.get("lead_stage"):
+            return
+        self.run(lambda: self.api.patch(f"/contacts/{cid}", {"lead_stage": stage}), lambda _: (self.toast(f"Lead stage set to {stage}", "success"), self.refresh()))
+
     def edit_contact(self) -> None:
         if not self.contact:
             return
         dlg = ContactDialog(self, existing=self.contact)
         if dlg.exec() != ContactDialog.DialogCode.Accepted:
             return
-        payload = dlg.payload()
-        cid = self.contact["id"]
+        payload, cid = dlg.payload(), self.contact["id"]
         self.run(lambda: self.api.patch(f"/contacts/{cid}", payload), lambda _: (self.toast("Contact saved", "success"), self.refresh()))
+
+    def toggle_archive(self) -> None:
+        if not self.contact:
+            return
+        cid = self.contact["id"]
+        if self.contact.get("archived"):
+            self.run(lambda: self.api.post(f"/contacts/{cid}/unarchive"), lambda _: self.refresh())
+        elif confirm(self, "Archive contact", "Archive this contact? It will never be called while archived.", "Archive"):
+            self.run(lambda: self.api.delete(f"/contacts/{cid}"), lambda _: self.refresh())
 
     def save_notes(self) -> None:
         if not self.contact_id:

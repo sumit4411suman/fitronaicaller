@@ -67,7 +67,7 @@ class CampaignEngineWorker(PeriodicWorker):
             open_jobs = s.scalar(select(func.count()).select_from(CallJob).where(CallJob.campaign_id == camp.id, CallJob.status.in_(("pending", "queued", "dispatched", "in_progress")))) or 0
             if open_jobs >= max_open:
                 continue
-            members = list(s.scalars(select(CampaignContact).where(CampaignContact.campaign_id == camp.id, CampaignContact.status.in_(("pending", "called"))).order_by(CampaignContact.created_at)))
+            members = list(s.scalars(select(CampaignContact).where(CampaignContact.campaign_id == camp.id, CampaignContact.status.in_(("pending", "called"))).order_by(CampaignContact.created_at, CampaignContact.id)))
             if not members:
                 if not s.scalar(select(func.count()).select_from(CallJob).where(CallJob.campaign_id == camp.id, CallJob.status.in_(("pending", "queued", "dispatched", "in_progress")))):
                     camp.status = "completed"
@@ -88,12 +88,12 @@ class CampaignEngineWorker(PeriodicWorker):
                 if res.eligible:
                     job = call_jobs.create(s, contact.id, campaign_id=camp.id, mode=camp.calling_mode, route="manual", idempotency_key=f"campaign:{camp.id}:{contact.id}:{m.attempts + 1}", actor="campaign_engine")
                     created.append(job.id)
-                elif _transient_only(res.reasons):
-                    pass
-                else:
-                    m.status, m.eligibility_snapshot = "excluded", res.to_dict()
-                    excluded += 1
-                break  # one decision per campaign per tick (honours min spacing)
+                    break  # at most one new job per campaign per tick (honours min spacing)
+                if _transient_only(res.reasons):
+                    break  # quiet hours / limits apply to everyone: try again next tick
+                # permanently ineligible (consent, suppression, opt-out...): exclude and look at the next member
+                m.status, m.eligibility_snapshot = "excluded", res.to_dict()
+                excluded += 1
         events = [("campaign.jobs_created", {"jobs": created})] if created else []
         events += [("campaign.completed", {"campaign_id": c}) for c in completed]
         return {"items": len(created), "created": len(created), "excluded": excluded, "completed": completed, "_events": events}

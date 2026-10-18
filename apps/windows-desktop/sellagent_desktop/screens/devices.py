@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.widgets import Card, DataTable, EmptyState, KeyValueGrid, badge, button, caption, confirm, countdown_label, fmt_dt, pretty_json, status_label

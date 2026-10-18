@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import BORDER, DANGER, GOLD, INFO, SUCCESS, WARNING, BarChart, Card, DataTable, DonutChart, EmptyState, KeyValueGrid, StatCard, badge, button, caption, chip, fmt_dt, set_chip, STATUS_CHIP
+from sellagent_desktop.widgets import BORDER, DANGER, INFO, SUCCESS, WARNING, BarChart, Card, DataTable, DonutChart, EmptyState, KeyValueGrid, StatCard, badge, button, caption, chip, fmt_dt, set_chip, STATUS_CHIP
 
 NOT_CONNECTED = {"none", "no_answer", "busy", "technical_failure", "cancelled"}
 

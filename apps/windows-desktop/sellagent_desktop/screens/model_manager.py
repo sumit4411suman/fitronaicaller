@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel
 
 from sellagent_desktop.api_client import LONG_TIMEOUT
 from sellagent_desktop.screens.base import BaseScreen

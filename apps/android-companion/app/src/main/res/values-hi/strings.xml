@@ -2,28 +2,11 @@
 <resources>
     <string name="app_name">SELL AGENT कंपेनियन</string>
     <string name="app_short_label">कंपेनियन</string>
-    <string name="nav_status">स्थिति</string>
     <string name="nav_calls">कॉल</string>
-    <string name="nav_emergency">रोक</string>
-    <string name="nav_permissions">अनुमतियाँ</string>
     <string name="nav_settings">सेटिंग</string>
-
-    <string name="status_title">स्थिति</string>
-    <string name="status_subtitle">हर 20 सेकंड में क्षमताओं सहित हार्टबीट</string>
-    <string name="status_mode_banner">केवल मानव-सहायता मोड: हर कैंपेन कॉल के लिए इस फ़ोन पर टैप ज़रूरी है। स्वायत्त अनुरोध अस्वीकार किए जाते हैं।</string>
-    <string name="status_connection">कनेक्शन</string>
-    <string name="status_last_heartbeat_ack">अंतिम हार्टबीट ack</string>
-    <string name="status_unsent_events">न भेजी गई घटनाएँ</string>
-    <string name="status_device">डिवाइस</string>
-    <string name="status_battery">बैटरी</string>
-    <string name="status_network">नेटवर्क</string>
-    <string name="status_in_call">कॉल में</string>
-    <string name="status_active_job">सक्रिय कॉल जॉब</string>
-    <string name="status_heartbeat_note">हार्टबीट पेलोड: device_id, battery_percent, network, wifi_calling_active (null: कोई सार्वजनिक API नहीं), in_call, capabilities।</string>
 
     <string name="calls_title">कॉल</string>
     <string name="calls_subtitle">call.request → ऑपरेटर टैप → call.state घटनाएँ</string>
-    <string name="calls_incoming_request">PC से कॉल अनुरोध</string>
     <string name="calls_none">कोई लंबित अनुरोध नहीं। PC से भेजे गए अनुरोध यहाँ दिखेंगे।</string>
     <string name="calls_display_name">प्रदर्शित नाम</string>
     <string name="calls_mode">मोड</string>
@@ -34,10 +17,7 @@
     <string name="calls_tap_to_dial">फ़ोन कभी स्वयं डायल नहीं करता। अभी कॉल करने के लिए डायल टैप करें, या अस्वीकार करें।</string>
     <string name="calls_dial">डायल करें</string>
     <string name="calls_decline">अस्वीकार</string>
-    <string name="calls_active">सक्रिय कॉल जॉब</string>
-    <string name="calls_last_state">अंतिम रिपोर्ट की गई स्थिति</string>
     <string name="calls_hang_up_now">अभी Phone ऐप से कॉल काटें – PC ने यह कॉल रद्द की है (%1$s) और यह ऐप डिफ़ॉल्ट डायलर नहीं है।</string>
-    <string name="calls_hung_up">मैंने कॉल काट दी</string>
     <string name="calls_no_pending">कोई लंबित अनुरोध नहीं</string>
     <string name="calls_expired">अनुरोध समाप्त</string>
     <string name="calls_estop_latched">आपातकालीन रोक सक्रिय – PC द्वारा हटाए जाने तक डायलिंग अवरुद्ध</string>
@@ -52,8 +32,6 @@
     <string name="emergency_latched">आपातकालीन रोक लैच</string>
     <string name="emergency_what_title">बटन क्या करता है</string>
     <string name="emergency_what_text">1. PC को safety.emergency_stop (issued_by=android) भेजता है, जो सभी कॉल जॉब रद्द करता है।\n2. यदि यह ऐप डिफ़ॉल्ट डायलर है तो सक्रिय कॉल समाप्त करता है; अन्यथा "अभी कॉल काटें" दिखाता है।\n3. लंबित अनुरोध अस्वीकार करता है और PC द्वारा रोक हटने तक नए अनुरोध अस्वीकार करता है।</string>
-
-    <string name="settings_title">सेटिंग</string>
     <string name="settings_subtitle">मोड · कनेक्शन · जानकारी</string>
     <string name="settings_mode">कॉलिंग मोड</string>
     <string name="settings_human_assisted">मानव-सहायता (डायल के लिए मैन्युअल टैप)</string>
@@ -62,11 +40,6 @@
     <string name="settings_autonomous_value">डिवाइस पर अक्षम</string>
     <string name="settings_connection">कनेक्शन</string>
     <string name="settings_open_pairing">पेयरिंग स्क्रीन खोलें</string>
-    <string name="settings_about">जानकारी</string>
-    <string name="settings_app_version">ऐप संस्करण</string>
-    <string name="settings_protocol">प्रोटोकॉल संस्करण</string>
-    <string name="settings_device">डिवाइस</string>
-    <string name="settings_android">Android</string>
     <string name="settings_about_text">FITRON द्वारा SELL AGENT कंपेनियन। केवल सार्वजनिक Android API का उपयोग: TelecomManager, TelephonyCallback, InCallService (डिफ़ॉल्ट-डायलर भूमिका), AudioManager, फ़ोरग्राउंड सेवाएँ। कोई कॉल ऑडियो कैप्चर या इंजेक्ट नहीं किया जाता।</string>
 
     <string name="call_emergency_blocked">आपातकालीन रोक सक्रिय है; PC द्वारा हटाए जाने तक डायलिंग अवरुद्ध है।</string>
@@ -77,10 +50,47 @@
     <string name="call_coarse">TelephonyCallback (मोटा)</string>
     <string name="call_detailed">InCallService (विस्तृत)</string>
     <string name="call_not_bound">जुड़ा नहीं (डिफ़ॉल्ट डायलर नहीं)</string>
-    <string name="call_route">ऑडियो रूट</string>
-    <string name="call_wifi_calling">Wi-Fi कॉलिंग सक्रिय</string>
     <string name="call_last_action">अंतिम क्रिया</string>
     <string name="runner_emergency_stop">आपातकालीन रोक</string>
     <string name="fgs_reason_call_expected">एक कॉल अनुरोध आपके टैप की प्रतीक्षा में है</string>
     <string name="fgs_reason_call_active">कैंपेन कॉल चल रही है</string>
+    <string name="nav_home">होम</string>
+    <string name="nav_contacts">संपर्क</string>
+    <string name="nav_campaigns">अभियान</string>
+    <string name="nav_more">और</string>
+    <string name="onb_1_body">SELL AGENT कंपेनियन Windows PC को इस फ़ोन पर कॉल अनुरोध भेजने देता है। आप हर अनुरोध देखते हैं और स्वयं डायल टैप करते हैं; फ़ोन कॉल स्थिति PC को बताता है। केवल मानव-सहायता।</string>
+    <string name="home_subtitle">कंपेनियन · मानव-सहायता कॉलिंग</string>
+    <string name="home_ready_title">कॉल के लिए तैयार</string>
+    <string name="home_ready">तैयार</string>
+    <string name="home_not_ready">तैयार नहीं</string>
+    <string name="home_wifi_connected">Wi-Fi जुड़ा</string>
+    <string name="home_queue">प्रतीक्षारत अनुरोध</string>
+    <string name="home_speaker">स्पीकर</string>
+    <string name="home_dial_hint">डायल सबसे पुराना कतारबद्ध अनुरोध लगाता है: %1$s</string>
+    <string name="home_current_call">वर्तमान कॉल स्थिति</string>
+    <string name="tile_call_queue">कॉल कतार</string>
+    <string name="tile_call_logs">कॉल लॉग</string>
+    <string name="calls_summary">कॉल सारांश</string>
+    <string name="calls_pause_queue">कतार रोकें</string>
+    <string name="calls_pause_help">रुकी होने पर PC से नए अनुरोध अस्वीकार होते हैं (queue_paused)।</string>
+    <string name="calls_expires_short">%1$d से.</string>
+    <string name="calls_busy_in_call">पहले वर्तमान कॉल समाप्त करें</string>
+    <string name="calls_logs_help">इस फ़ोन द्वारा भेजी गई call.state घटनाओं से बना स्थानीय इतिहास। अवधि इसी फ़ोन पर मापी गई है।</string>
+    <string name="calls_logs_empty">अभी कोई कॉल नहीं।</string>
+    <string name="calls_logs_clear">स्थानीय इतिहास साफ़ करें</string>
+    <string name="calls_number">नंबर</string>
+    <string name="calls_duration">अवधि</string>
+    <string name="calls_final_state">अंतिम स्थिति</string>
+    <string name="calls_add_note">नोट जोड़ें</string>
+    <string name="calls_note_local">इस संस्करण में नोट्स इसी फ़ोन पर रहते हैं; PC को नहीं भेजे जाते।</string>
+    <string name="calls_events">स्थिति घटनाएँ</string>
+    <string name="contacts_title">संपर्क</string>
+    <string name="campaigns_title">अभियान</string>
+    <string name="managed_on_pc">PC पर प्रबंधित</string>
+    <string name="contacts_empty">संपर्क Windows ऐप में प्रबंधित होते हैं। प्रोटोकॉल 1.0 फ़ोन को संपर्क सूची नहीं भेजता, इसलिए यहाँ कुछ नहीं दिखता।</string>
+    <string name="campaigns_empty">अभियान Windows ऐप में प्रबंधित होते हैं। उनकी कॉल यहाँ कॉल › कतार में अनुरोध के रूप में आती हैं।</string>
+    <string name="more_device_connection">डिवाइस कनेक्शन</string>
+    <string name="live_back">वापस</string>
+    <string name="settings_title">सेटिंग</string>
+    <string name="status_last_heartbeat_ack">अंतिम हार्टबीट ack</string>
 </resources>

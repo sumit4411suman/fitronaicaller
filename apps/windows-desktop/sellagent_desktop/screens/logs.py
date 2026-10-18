@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QPlainTextEdit, QTabWidget, QVBoxLayout, QWidget
 
 from sellagent_desktop import APP_VERSION
 from sellagent_desktop.screens.base import BaseScreen

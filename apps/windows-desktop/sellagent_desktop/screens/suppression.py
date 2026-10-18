@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QPlainTextEdit, QWidget
 
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import Card, DataTable, EmptyState, FormDialog, TextInputDialog, button, caption, combo, confirm, fmt_dt, status_label
+from sellagent_desktop.widgets import Card, DataTable, EmptyState, FormDialog, TextInputDialog, button, combo, fmt_dt, status_label
 
 
 class SuppressDialog(FormDialog):

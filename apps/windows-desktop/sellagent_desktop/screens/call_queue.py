@@ -5,7 +5,6 @@ from __future__ import annotations
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QSplitter, QVBoxLayout, QWidget
 from PySide6.QtCore import Qt
 
-from sellagent_desktop.api_client import ApiError
 from sellagent_desktop.screens.base import BaseScreen
 from sellagent_desktop.widgets import Card, DataTable, EmptyState, FormDialog, KeyValueGrid, badge, button, caption, combo, confirm, fmt_dt, info, status_label
 

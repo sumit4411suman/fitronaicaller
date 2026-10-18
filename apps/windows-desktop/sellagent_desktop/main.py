@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     from PySide6.QtWidgets import QApplication, QMessageBox, QSplashScreen
 
     from sellagent_desktop.api_client import ApiClient, call_async
-    from sellagent_desktop.backend_process import BackendProcess, BackendStartError
+    from sellagent_desktop.backend_process import BackendProcess
     from sellagent_desktop.context import AppContext
     from sellagent_desktop.main_window import MainWindow
     from sellagent_desktop.screens.setup_wizard import SetupWizard, needs_first_run

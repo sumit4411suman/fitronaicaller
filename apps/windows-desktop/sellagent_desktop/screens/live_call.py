@@ -528,6 +528,7 @@ class LiveCallScreen(BaseScreen):
         self.tx_thread.status.connect(lambda st: self.tx_status.setText(f"Live transcription: {st}"))
         self.tx_thread.finished_ok.connect(self._tx_finished)
         self.tx_btn.setText("Stop transcription")
+        self.tx_error = None
         set_chip(self.mic_chip, "mic: connecting", "info")
         self.tx_thread.start()
 
@@ -540,7 +541,11 @@ class LiveCallScreen(BaseScreen):
             self.tx_thread.wait(2000)
         self.tx_thread = None
         self.tx_btn.setText("Start transcription")
-        set_chip(self.mic_chip, "mic off", "neutral")
+        # keep an error visible so the operator can see WHY transcription stopped (e.g. speech model not installed)
+        if getattr(self, "tx_error", None):
+            set_chip(self.mic_chip, "mic: error", "danger")
+        else:
+            set_chip(self.mic_chip, "mic off", "neutral")
         if self.call_id:
             self.load_call()
 
@@ -560,6 +565,7 @@ class LiveCallScreen(BaseScreen):
             self.transcript.addItem(item)
             self.transcript.scrollToBottom()
         elif t == "error":
+            self.tx_error = m.get("code") or "error"
             set_chip(self.mic_chip, "mic: error", "danger")
             self.tx_status.setText(f"Transcription stopped: {m.get('error')} [{m.get('code')}]")
             self.tx_status.setProperty("role", "danger")

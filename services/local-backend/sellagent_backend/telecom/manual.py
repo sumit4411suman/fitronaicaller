@@ -20,3 +20,6 @@ class ManualAdapter:
 
     async def cancel(self, **_: object) -> bool:
         return True
+
+    def call_audio_path(self, call_id: str) -> None:
+        return None  # the operator's own phone: the PC has no access to that call's audio

@@ -138,6 +138,11 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
 
         app.state.workers = WorkerManager(sf, app.state.hub, settings.reports_dir)
         app.state.hub.on_emergency_stop.append(lambda: (app.state.workers.ai.cancel_all(), app.state.workers.speech.cancel_all()))
+        from sellagent_backend.autonomy import AutonomyManager, default_components
+
+        app.state.autonomy = AutonomyManager(sf, conversation_engine, app.state.workers.emit, default_components(settings))
+        app.state.autonomy.loop = asyncio.get_running_loop()
+        app.state.hub.on_emergency_stop.append(app.state.autonomy.emergency_stop)
         if not getattr(settings, "disable_workers", False):
             app.state.workers.start()
         task = asyncio.create_task(housekeeping())
@@ -146,6 +151,7 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
             yield
         finally:
             task.cancel()
+            app.state.autonomy.stop("backend shutting down")
             await app.state.workers.stop()
             if app.state.lan.running:
                 await app.state.lan.stop()

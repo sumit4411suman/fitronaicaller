@@ -21,7 +21,7 @@ from sellagent_backend.services import settings_service
 
 router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(require_area("ai"))])
 
-_sim_sessions: dict[str, tuple[ConversationStateMachine, ConversationContext]] = {}
+_sim_sessions: dict[str, tuple[ConversationStateMachine, ConversationContext, object]] = {}
 
 
 def _provider(request: Request, db: Session):
@@ -103,14 +103,22 @@ def simulate(session_id: str, body: ConversationStepIn, request: Request, db: Se
         import uuid
 
         session_id = uuid.uuid4().hex
-        _sim_sessions[session_id] = (ConversationStateMachine(State.CONNECTED), ConversationContext(authorized=True))
-    sm, ctx = _sim_sessions[session_id]
+        from sellagent_ai.persona import ConversationMemory
+
+        _sim_sessions[session_id] = (ConversationStateMachine(State.CONNECTED), ConversationContext(authorized=True), ConversationMemory())
+    sm, ctx, memory = _sim_sessions[session_id]
     if sm.is_terminal:
         raise bad_request("simulation finished; start a new one", code="terminal")
     engine = request.app.state.conversation_engine(use_llm=body.use_llm)
     facts = [KnowledgeFact(f"kb:{d.id}#v{d.version}", d.title, d.category, d.body, d.structured) for d in approved_facts(db)]
-    turn = engine.respond(sm, body.utterance, facts=facts, ctx=ctx, preferred_language=body.language, contact_person="Demo Owner", business_name="Demo Gym")
-    return {"session_id": session_id, "label": "SIMULATION", "state": sm.state.value, "agent_text": turn.agent_text, "language": turn.language, "knowledge_refs": turn.knowledge_refs, "source": turn.source, "guardrail": turn.guardrail.to_dict() if turn.guardrail else None, "terminal": sm.is_terminal, "outcome": turn.outcome, "llm": turn.llm_metrics}
+    from sellagent_backend.services import persona_service
+
+    persona = persona_service.load_persona(db)
+    if body.utterance:
+        memory.observe("prospect", body.utterance)  # type: ignore[attr-defined]
+    turn = engine.respond(sm, body.utterance, facts=facts, ctx=ctx, preferred_language=persona_service.effective_language(db, body.language, persona), contact_person="Demo Owner", business_name="Demo Gym", persona=persona, memory=memory if persona else None)  # type: ignore[arg-type]
+    memory.observe("agent", turn.agent_text)  # type: ignore[attr-defined]
+    return {"session_id": session_id, "label": "SIMULATION", "persona": persona.name if persona else None, "cues": turn.cues, "memory": memory.summary(), "state": sm.state.value, "agent_text": turn.agent_text, "language": turn.language, "knowledge_refs": turn.knowledge_refs, "source": turn.source, "guardrail": turn.guardrail.to_dict() if turn.guardrail else None, "terminal": sm.is_terminal, "outcome": turn.outcome, "llm": turn.llm_metrics}
 
 
 @router.get("/runs")

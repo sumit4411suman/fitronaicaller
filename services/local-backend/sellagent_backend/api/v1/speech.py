@@ -27,7 +27,7 @@ router = APIRouter(prefix="/speech", tags=["speech"], dependencies=[Depends(requ
 def status(request: Request, db: Session = Depends(get_db)) -> dict:
     s = request.app.state.settings
     stt = FasterWhisperSTT(settings_service.get(db, "ai.whisper_model"), models_dir=s.models_dir)
-    tts = PiperTTS(s.models_dir)
+    tts = PiperTTS(s.models_dir, executable=settings_service.get(db, "ai.piper_executable") or None)
     stt_ok, stt_msg = stt.available()
     tts_ok, tts_msg = tts.available()
     return {"stt": {"engine": "faster-whisper", "available": stt_ok, "message": stt_msg, "model": stt.model_size}, "tts": {"engine": "piper", "available": tts_ok, "message": tts_msg, "voices": tts.list_voices(), "voice_en": settings_service.get(db, "ai.piper_voice_en"), "voice_hi": settings_service.get(db, "ai.piper_voice_hi")}, "vad": synthetic_vad_selftest(), "audio_devices": devices(), "models_dir": str(s.models_dir), "label": "PC-local diagnostics; says nothing about phone call audio"}
@@ -46,11 +46,14 @@ def _wav_bytes(audio: np.ndarray, rate: int) -> bytes:
 @router.post("/tts")
 async def tts(body: TTSIn, request: Request, db: Session = Depends(get_db)) -> dict:
     s = request.app.state.settings
-    voice = settings_service.get(db, "ai.piper_voice_hi" if body.language == "hi" else "ai.piper_voice_en")
+    from sellagent_backend.services import persona_service
+
+    voice = persona_service.voices(db)["hi" if body.language == "hi" else "en"]
+    opts = persona_service.tts_options(db)
     if not voice:
         raise bad_request(f"no Piper voice configured for {body.language}; see models/README.md", code="no_voice")
     try:
-        res = await asyncio.to_thread(PiperTTS(s.models_dir).synthesize, body.text, voice)
+        res = await asyncio.to_thread(PiperTTS(s.models_dir, executable=settings_service.get(db, "ai.piper_executable") or None).synthesize, body.text, voice, opts["speed"], volume=opts["volume"], pause_ms=opts["pause_ms"])
     except TTSUnavailable as exc:
         raise bad_request(str(exc), code="tts_unavailable") from exc
     db.add(AIRun(kind="tts", provider="piper", model=voice, prompt_chars=len(body.text), total_ms=res.latency_ms, success=True, offline=True))
@@ -100,15 +103,18 @@ async def pipeline_test(request: Request, db: Session = Depends(get_db), file: U
     ok, msg = stt_engine.available()
     if not ok:
         raise bad_request(msg, code="stt_unavailable")
-    tts = PiperTTS(s.models_dir)
-    voices = {"en": settings_service.get(db, "ai.piper_voice_en"), "hi": settings_service.get(db, "ai.piper_voice_hi")}
+    tts = PiperTTS(s.models_dir, executable=settings_service.get(db, "ai.piper_executable") or None)
+    from sellagent_backend.services import persona_service
+
+    voices = persona_service.voices(db)
     engine = request.app.state.conversation_engine(use_llm=use_llm)
 
     def respond(text: str, lang: str | None) -> tuple[str, str]:
         with request.app.state.session_factory() as s2:
             facts = facts_for(s2, text)
+            persona = persona_service.load_persona(s2)
         sm = ConversationStateMachine(State.PRODUCT_EXPLANATION)
-        turn = engine.respond(sm, text, facts=facts, ctx=ConversationContext(authorized=True), preferred_language=language or lang or "auto")
+        turn = engine.respond(sm, text, facts=facts, ctx=ConversationContext(authorized=True), preferred_language=language or lang or "auto", persona=persona)
         return turn.agent_text, turn.language
 
     try:

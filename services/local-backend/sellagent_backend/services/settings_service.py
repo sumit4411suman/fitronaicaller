@@ -15,6 +15,7 @@ from sellagent_backend.db.models import Setting
 from sellagent_backend.services import audit
 
 DEFAULTS: dict[str, Any] = {
+    "general.app_display_name": "SELL AGENT",
     "general.business_name": "FITRON",
     "general.operator_name": "Operator",
     "general.locale": "en-IN",

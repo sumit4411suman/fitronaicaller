@@ -12,5 +12,7 @@ must use these tokens; do not introduce other accent colours.
 | `qt/theme.qss` | desktop stylesheet (loaded by `sellagent_desktop.theme`) |
 | `android/colors.xml`, `android/BrandTheme.kt` | copied verbatim into each Android app |
 
-Rules: gold `#D4AF37` is the only accent; backgrounds are `#0B0B0B`/`#141414`/`#1C1C1C`; text is warm off-white `#F5F0E1`;
-the emergency stop is the only element allowed to use red as a fill. Hindi text must render with a Devanagari-capable font.
+Rules (from the approved mockups): dark gold chrome (desktop sidebar, Android splash and live-call screen) on `#0B0B0B` with
+gold `#D4AF37`; light content surfaces `#F7F6F2`/`#FFFFFF` with dark text `#1A1A1A`; gold is the only accent and the only
+primary-button colour; status chips use tinted backgrounds; emergency stop / end call is the only red filled button.
+Hindi text must render with a Devanagari-capable font (Nirmala UI on Windows, Noto Sans Devanagari elsewhere).

@@ -1,0 +1,196 @@
+"""Screen 4: CRM contact list with search/filter/sort/paging, archive, open detail and the New contact dialog."""
+
+from __future__ import annotations
+
+import re
+
+from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QWidget
+
+from sellagent_desktop.api_client import ApiError
+from sellagent_desktop.screens.base import BaseScreen
+from sellagent_desktop.widgets import DataTable, EmptyState, FormDialog, button, combo, confirm, fmt_dt
+
+LEAD_STAGES = ("new", "contacted", "interested", "demo_scheduled", "converted", "not_interested", "do_not_call")
+CONSENT = ("unknown", "granted", "denied", "withdrawn")
+PHONE_RE = re.compile(r"^[+\d][\d\s\-()]{3,39}$")
+PAGE = 50
+
+
+class ContactDialog(FormDialog):
+    """Create or edit a contact; validation mirrors the backend ContactIn schema."""
+
+    def __init__(self, parent: QWidget | None, stages: tuple[str, ...] = LEAD_STAGES, existing: dict | None = None):
+        super().__init__(parent, "Edit contact" if existing else "New contact", "Save contact" if existing else "Create contact")
+        self.setObjectName("ContactDialog")
+        e = existing or {}
+        self.add_field("business_name", "Business / gym name", QLineEdit(e.get("business_name", "")), required=True)
+        self.add_field("contact_person", "Contact person", QLineEdit(e.get("contact_person") or ""))
+        ph = QLineEdit(e.get("phone_raw") or e.get("phone_e164") or "")
+        ph.setPlaceholderText("+91 98765 43210")
+        self.add_field("phone", "Phone", ph, required=True, help_text="Indian numbers may be entered without +91; stored as E.164")
+        self.add_field("email", "Email", QLineEdit(e.get("email") or ""))
+        self.add_field("city", "City", QLineEdit(e.get("city") or ""))
+        self.add_field("district", "District", QLineEdit(e.get("district") or ""))
+        self.add_field("state", "State", QLineEdit(e.get("state") or ""))
+        self.add_field("source_url", "Source URL", QLineEdit(e.get("source_url") or ""))
+        self.add_field("source_verification", "Source verification", combo([(x, x) for x in ("unverified", "verified", "rejected")], e.get("source_verification", "unverified")))
+        self.add_field("lead_source", "Lead source", QLineEdit(e.get("lead_source") or ""))
+        self.add_field("lead_stage", "Lead stage", combo([(s, s) for s in stages], e.get("lead_stage", "new")))
+        self.add_field("consent_status", "Consent status", combo([(c, c) for c in CONSENT], e.get("consent_status", "unknown")), help_text="Record evidence under Permissions on the contact page; this is only the summary flag")
+        tags = QLineEdit(", ".join(e.get("tags") or []))
+        tags.setPlaceholderText("comma, separated, tags")
+        self.add_field("tags", "Tags", tags)
+        notes = QPlainTextEdit(e.get("notes") or "")
+        notes.setMaximumHeight(80)
+        self.add_field("notes", "Notes", notes)
+        self.fields["business_name"].setObjectName("business_name")
+        self.fields["phone"].setObjectName("phone")
+
+    def validate(self) -> bool:
+        ok = super().validate()
+        phone = self.raw_value("phone")
+        if phone and not PHONE_RE.match(phone):
+            self.set_field_error("phone", "Enter digits with optional +, spaces, dashes or brackets")
+            ok = False
+        email = self.raw_value("email")
+        if email and "@" not in email:
+            self.set_field_error("email", "Enter a valid email address or leave empty")
+            ok = False
+        return ok
+
+    def payload(self) -> dict:
+        v = self.values()
+        v["tags"] = [t.strip() for t in str(v["tags"]).split(",") if t.strip()]
+        for k in ("contact_person", "email", "city", "district", "state", "source_url", "lead_source", "notes"):
+            if v[k] == "":
+                v[k] = None
+        return v
+
+
+class ContactsScreen(BaseScreen):
+    key, title = "contacts", "CRM contacts"
+
+    def build(self) -> None:
+        bar = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Search business, person, phone, city…")
+        self.search.setAccessibleName("Search contacts")
+        self.search.setObjectName("contacts_search")
+        self.search.returnPressed.connect(self.first_page)
+        bar.addWidget(self.search, 2)
+        self.stage = combo([("all stages", None)] + [(s, s) for s in LEAD_STAGES])
+        self.stage.setAccessibleName("Lead stage filter")
+        self.consent = combo([("any consent", None)] + [(c, c) for c in CONSENT])
+        self.consent.setAccessibleName("Consent filter")
+        self.sort = combo([("updated", "updated_at"), ("created", "created_at"), ("business name", "business_name"), ("city", "city"), ("lead stage", "lead_stage"), ("last contact", "last_contact_at"), ("next follow-up", "next_followup_at")])
+        self.sort.setAccessibleName("Sort by")
+        self.desc = QCheckBox("newest first")
+        self.desc.setChecked(True)
+        self.archived = QCheckBox("archived")
+        self.archived.setAccessibleName("Show archived contacts")
+        for w in (self.stage, self.consent, self.sort, self.desc, self.archived):
+            bar.addWidget(w)
+            if isinstance(w, QComboBox):
+                w.currentIndexChanged.connect(self.first_page)
+            else:
+                w.stateChanged.connect(self.first_page)
+        bar.addWidget(button("Search", None, self.first_page))
+        self.root.addLayout(bar)
+
+        actions = QHBoxLayout()
+        self.new_btn = button("New contact", "primary", self.new_contact)
+        self.new_btn.setObjectName("new_contact_btn")
+        self.open_btn = button("Open detail", None, self.open_selected)
+        self.archive_btn = button("Archive", None, self.archive_selected)
+        self.queue_btn = button("Create call job", None, lambda: self._with_selected(lambda c: self.ctx.navigate("call_queue", contact_id=c["id"])))
+        self.elig_btn = button("Check eligibility", None, lambda: self._with_selected(lambda c: self.ctx.navigate("eligibility", contact_id=c["id"])))
+        for b in (self.new_btn, self.open_btn, self.archive_btn, self.queue_btn, self.elig_btn):
+            actions.addWidget(b)
+        actions.addStretch(1)
+        actions.addWidget(button("Import / export", None, lambda: self.ctx.navigate("import_export")))
+        self.root.addLayout(actions)
+
+        self.table = DataTable([
+            ("Business", "business_name"), ("Person", "contact_person"), ("Phone", "phone_e164"), ("City", "city"), ("Stage", "lead_stage"),
+            ("Consent", "consent_status"), ("Opted out", "opted_out"), ("Last contact", lambda r: fmt_dt(r.get("last_contact_at"))), ("Next follow-up", lambda r: fmt_dt(r.get("next_followup_at"))), ("Updated", lambda r: fmt_dt(r.get("updated_at"))),
+        ])
+        self.table.setObjectName("contacts_table")
+        self.table.itemDoubleClicked.connect(lambda *_: self.open_selected())
+        self.root.addWidget(self.table, 1)
+        self.empty = EmptyState("No contacts match. Create one with 'New contact' or import a CSV/XLSX under Import / export.")
+        self.root.addWidget(self.empty)
+        pager = QHBoxLayout()
+        self.prev_btn = button("◀ Previous", None, lambda: self.load(self.offset - PAGE))
+        self.next_btn = button("Next ▶", None, lambda: self.load(self.offset + PAGE))
+        self.page_lbl = QLabel("")
+        pager.addWidget(self.prev_btn)
+        pager.addWidget(self.page_lbl)
+        pager.addWidget(self.next_btn)
+        pager.addStretch(1)
+        self.root.addLayout(pager)
+        self.offset, self.total = 0, 0
+
+    def refresh(self) -> None:
+        self.load(self.offset)
+
+    def first_page(self) -> None:
+        self.load(0)
+
+    def load(self, offset: int) -> None:
+        offset = max(0, offset)
+        params = dict(q=self.search.text().strip() or None, lead_stage=self.stage.currentData(), consent_status=self.consent.currentData(), archived=self.archived.isChecked(), sort=self.sort.currentData(), desc=self.desc.isChecked(), limit=PAGE, offset=offset)
+        self.run(lambda: self.api.get("/contacts", **params), lambda page: self._show(page, offset))
+
+    def _show(self, page: dict, offset: int) -> None:
+        self.offset, self.total = offset, int(page.get("total", 0))
+        rows = page.get("items", [])
+        self.table.set_rows(rows)
+        self.empty.setVisible(not rows)
+        self.table.setVisible(bool(rows))
+        self.page_lbl.setText(f"{offset + 1 if rows else 0}–{offset + len(rows)} of {self.total}")
+        self.prev_btn.setEnabled(offset > 0)
+        self.next_btn.setEnabled(offset + PAGE < self.total)
+        self.archive_btn.setText("Unarchive" if self.archived.isChecked() else "Archive")
+
+    def _with_selected(self, fn) -> None:
+        row = self.table.selected_row()
+        if row is None:
+            self.toast("Select a contact first", "warning")
+            return
+        fn(row)
+
+    def open_selected(self) -> None:
+        self._with_selected(lambda c: self.ctx.navigate("contact_detail", contact_id=c["id"]))
+
+    def archive_selected(self) -> None:
+        def go(c: dict) -> None:
+            if self.archived.isChecked():
+                self.run(lambda: self.api.post(f"/contacts/{c['id']}/unarchive"), lambda _: (self.toast("Contact restored"), self.refresh()))
+            elif confirm(self, "Archive contact", f"Archive {c['business_name']}? Archived contacts are never called and can be restored from the archived view.", "Archive"):
+                self.run(lambda: self.api.delete(f"/contacts/{c['id']}"), lambda _: (self.toast("Contact archived"), self.refresh()))
+        self._with_selected(go)
+
+    def new_contact(self) -> None:
+        dlg = ContactDialog(self)
+        self._run_contact_dialog(dlg)
+
+    def _run_contact_dialog(self, dlg: ContactDialog, allow_duplicate: bool = False) -> None:
+        if dlg.exec() != ContactDialog.DialogCode.Accepted:
+            return
+        payload = dlg.payload()
+
+        def created(c: dict) -> None:
+            self.toast(f"Created {c['business_name']} ({c['phone_e164']})", "success")
+            self.first_page()
+
+        def failed(exc: Exception) -> None:
+            if isinstance(exc, ApiError) and exc.code == "duplicate_contact":
+                if confirm(self, "Duplicate phone number", f"{exc.error}\n\nCreate it anyway?", "Create duplicate", danger=True):
+                    self.run(lambda: self.api.request("POST", "/contacts", json=payload, params={"allow_duplicate": True}), created)
+                return
+            self.report_error(exc)
+            dlg2 = ContactDialog(self, existing={**payload, "phone_raw": payload["phone"]})
+            dlg2.show_error(str(exc))
+            self._run_contact_dialog(dlg2)
+
+        self.run(lambda: self.api.request("POST", "/contacts", json=payload, params={"allow_duplicate": allow_duplicate} if allow_duplicate else None), created, failed)

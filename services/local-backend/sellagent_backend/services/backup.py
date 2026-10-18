@@ -77,7 +77,7 @@ def _snapshot(db_path: Path) -> bytes:
 def create_backup(db_path: Path, backups_dir: Path, *, passphrase: str | None, app_version: str, keep: int = 10) -> dict[str, Any]:
     backups_dir.mkdir(parents=True, exist_ok=True)
     data = _snapshot(db_path)
-    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S-%f")[:-3] + "Z"
     meta = {"created_at": ts, "app_version": app_version, "sha256": hashlib.sha256(data).hexdigest(), "size": len(data), "encrypted": bool(passphrase)}
     if passphrase:
         out = backups_dir / f"sellagent-{ts}.sabk"

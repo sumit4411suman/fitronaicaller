@@ -118,7 +118,7 @@ def dispatch(session: Session, job_id: str, *, actor: str = "operator") -> tuple
     token = generate_token(24)
     job.authorization_token_hash = hash_token(token)
     _transition(session, job, "dispatched", actor=actor)
-    call = Call(call_job_id=job.id, contact_id=job.contact_id, started_at=datetime.now(UTC))
+    call = Call(call_job_id=job.id, contact_id=job.contact_id, started_at=datetime.now(UTC), conversation_state="dial_request")
     session.add(call)
     session.flush()
     session.add(CallEvent(call_id=call.id, event_type="dispatched", to_state="dial_request", source="backend", data={"route": job.route, "mode": job.mode}))

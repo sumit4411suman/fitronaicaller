@@ -16,8 +16,7 @@ CATEGORIES = ("pricing", "offer", "product", "faq", "objection", "compliance", "
 
 # Patterns that indicate an imported document is trying to instruct the model rather than inform it.
 _INJECTION_PATTERNS = [
-    r"ignore (all|any|the|previous|prior|above) (instructions?|rules?|prompts?)",
-    r"disregard (all|any|the|previous|prior|above)",
+    r"(ignore|forget|disregard)\s+(?:\w+\s+){0,3}(instructions?|rules?|prompts?|guidelines?)",
     r"you are now",
     r"act as (an?|the) ",
     r"system prompt",

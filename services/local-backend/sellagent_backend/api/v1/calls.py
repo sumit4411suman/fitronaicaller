@@ -165,11 +165,18 @@ def mark_connected(call_id: str, db: Session = Depends(get_db)) -> dict:
     """Operator confirms the prospect answered (human-assisted route)."""
     c = _call(db, call_id)
     sm = _load_sm(c)
+    path = {
+        State.ELIGIBILITY_CHECK: [State.CALL_AUTHORIZATION, State.DIAL_REQUEST, State.DIALING, State.CONNECTED],
+        State.CALL_AUTHORIZATION: [State.DIAL_REQUEST, State.DIALING, State.CONNECTED],
+        State.DIAL_REQUEST: [State.DIALING, State.CONNECTED], State.DIALING: [State.CONNECTED], State.RINGING: [State.CONNECTED],
+    }
     try:
-        if sm.state in (State.DIAL_REQUEST, State.DIALING, State.RINGING):
-            sm.transition(State.CONNECTED, reason="operator confirmed answer", ctx=ConversationContext(authorized=True))
+        for nxt in path.get(sm.state, []):
+            sm.transition(nxt, reason="operator confirmed answer", ctx=ConversationContext(authorized=True))
     except InvalidTransition as exc:
         raise bad_request(str(exc)) from exc
+    if not sm.is_live:
+        raise bad_request(f"call cannot be marked connected from state {sm.state}", code="invalid_transition")
     c.conversation_state = sm.state.value
     c.connected_at = c.connected_at or datetime.now(UTC)
     svc.mark_in_progress(db, c.call_job_id, actor="operator")

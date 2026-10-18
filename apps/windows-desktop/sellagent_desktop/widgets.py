@@ -160,7 +160,7 @@ def button(text: str, role: str | None = None, on_click: Callable[[], None] | No
     if tooltip:
         b.setToolTip(tooltip)
     if on_click:
-        b.clicked.connect(on_click)
+        b.clicked.connect(lambda _checked=False: on_click())  # never leak QPushButton's `checked` bool into handlers
     b.setCursor(Qt.CursorShape.PointingHandCursor)
     return b
 

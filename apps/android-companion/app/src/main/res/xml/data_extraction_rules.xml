@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Secrets (device token, pinned fingerprint) must never leave the device through backup or device transfer. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="sellagent_secure.xml" />
+        <exclude domain="file" path="outbox.jsonl" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="sellagent_secure.xml" />
+        <exclude domain="file" path="outbox.jsonl" />
+    </device-transfer>
+</data-extraction-rules>

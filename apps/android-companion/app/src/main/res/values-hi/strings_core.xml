@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="yes">हाँ</string>
+    <string name="no">नहीं</string>
+    <string name="cancel">रद्द करें</string>
+    <string name="granted">अनुमति मिली</string>
+    <string name="not_granted">अनुमति नहीं</string>
+    <string name="unknown_no_public_api">अज्ञात (कोई सार्वजनिक API नहीं)</string>
+    <string name="transport_log">ट्रांसपोर्ट लॉग</string>
+
+    <string name="conn_stopped">रुका हुआ</string>
+    <string name="conn_unpaired">पेयर नहीं है</string>
+    <string name="conn_connecting">कनेक्ट हो रहा है…</string>
+    <string name="conn_connected">%1$s से जुड़ा</string>
+    <string name="conn_backoff">%1$d सेकंड में पुनः प्रयास (%2$s)</string>
+
+    <string name="pairing_title">पेयरिंग</string>
+    <string name="pairing_subtitle">प्रोटोकॉल %1$s · TLS फ़िंगरप्रिंट पिन किया गया</string>
+    <string name="pairing_connection">कनेक्शन</string>
+    <string name="pairing_state">स्थिति</string>
+    <string name="pairing_backend">बैकएंड</string>
+    <string name="pairing_device_id">डिवाइस आईडी</string>
+    <string name="pairing_endpoint">एंडपॉइंट</string>
+    <string name="pairing_pinned_fp">पिन किया SHA-256</string>
+    <string name="pairing_token_hidden">डिवाइस टोकन Android Keystore से सुरक्षित एन्क्रिप्टेड प्रेफरेंस में रखा गया है और कभी दिखाया या लॉग नहीं किया जाता।</string>
+    <string name="pairing_reconnect">अभी पुनः कनेक्ट करें</string>
+    <string name="pairing_forget">पेयरिंग भूलें</string>
+    <string name="pairing_form_title">Windows PC से पेयर करें</string>
+    <string name="pairing_form_help">Windows पर Devices › Pair खोलें। PC का LAN IP, पोर्ट, पेयरिंग कोड और प्रमाणपत्र का SHA-256 फ़िंगरप्रिंट ठीक वैसे ही दर्ज करें जैसा दिखाया गया है। फिर PC पर अनुरोध स्वीकृत करें।</string>
+    <string name="pairing_host">PC का IP पता</string>
+    <string name="pairing_port">पोर्ट</string>
+    <string name="pairing_code">पेयरिंग कोड</string>
+    <string name="pairing_fingerprint">TLS फ़िंगरप्रिंट (SHA-256, AA:BB:…)</string>
+    <string name="pairing_pair">पेयर करें</string>
+    <string name="pairing_status">स्थिति</string>
+    <string name="pairing_status_idle">तैयार</string>
+    <string name="pairing_status_checking">TLS फ़िंगरप्रिंट जाँच कर अनुरोध भेजा जा रहा है…</string>
+    <string name="pairing_status_waiting">PC पर स्वीकृति की प्रतीक्षा (%1$d सेकंड)</string>
+    <string name="pairing_status_approved">स्वीकृत। टोकन सुरक्षित रूप से सहेजा गया।</string>
+    <string name="pairing_status_failed">विफल: %1$s</string>
+    <string name="pairing_security_title">सुरक्षा</string>
+    <string name="pairing_security_text">कनेक्शन केवल तभी स्वीकार होता है जब सर्वर प्रमाणपत्र का SHA-256 फ़िंगरप्रिंट आपके दर्ज किए गए से मेल खाता हो। सिस्टम CA का उपयोग नहीं होता और प्रमाणपत्र जाँच कभी बंद नहीं की जाती। यदि PC नया प्रमाणपत्र बनाए तो फिर से पेयर करना होगा।</string>
+
+    <string name="perm_title">अनुमतियाँ और क्षमताएँ</string>
+    <string name="perm_subtitle">नीचे का हर मान अभी Android से पढ़ा गया है</string>
+    <string name="perm_runtime">रनटाइम अनुमतियाँ</string>
+    <string name="perm_request_all">अनुमतियाँ माँगें</string>
+    <string name="perm_open_settings">ऐप सेटिंग</string>
+    <string name="perm_dialer_title">डिफ़ॉल्ट डायलर भूमिका</string>
+    <string name="perm_dialer_why">क्यों: InCallService ही एकमात्र समर्थित तरीका है जिससे ऐप विस्तृत कॉल स्थिति (डायलिंग, रिंगिंग, सक्रिय, होल्ड, कारण सहित डिस्कनेक्ट) देख सकता है, ऑडियो रूट बदल सकता है और कॉल समाप्त कर सकता है। Android हमारी InCallService को केवल तभी जोड़ता है जब यह ऐप डिफ़ॉल्ट फ़ोन ऐप हो। आप कभी भी Samsung Phone पर वापस जा सकते हैं।</string>
+    <string name="perm_dialer_role">ROLE_DIALER प्राप्त</string>
+    <string name="perm_incall_bound">InCallService जुड़ा</string>
+    <string name="perm_request_dialer">डिफ़ॉल्ट डायलर माँगें</string>
+    <string name="perm_default_apps">डिफ़ॉल्ट ऐप्स</string>
+    <string name="perm_fgs_title">फ़ोरग्राउंड सेवा</string>
+    <string name="perm_fgs_running">चल रही है</string>
+    <string name="perm_fgs_types">उपयोग में प्रकार</string>
+    <string name="perm_fgs_start">शुरू करें और सत्यापित करें</string>
+    <string name="perm_fgs_stop">रोकें</string>
+    <string name="perm_caps_title">व्युत्पन्न क्षमताएँ (PC को भेजी जाती हैं)</string>
+    <string name="perm_caps_help">हर फ़्लैग केवल तभी सत्य है जब नीचे लिखा तथ्य नामित प्लेटफ़ॉर्म API से सत्यापित हुआ हो। remote_audio_capture_verified और audio_injection_verified ऐप से हमेशा असत्य रहते हैं; केवल PC उन्हें ऑपरेटर-पुष्ट वास्तविक-डिवाइस परीक्षण रिकॉर्ड से सेट कर सकता है।</string>
+    <string name="cap_can_place_calls">can_place_calls</string>
+    <string name="cap_reports_call_state">reports_call_state</string>
+    <string name="cap_is_default_dialer">is_default_dialer</string>
+    <string name="cap_can_control_audio_route">can_control_audio_route</string>
+    <string name="cap_can_end_calls">can_end_calls</string>
+    <string name="cap_supports_fgs">supports_foreground_service</string>
+    <string name="cap_remote_capture">remote_audio_capture_verified</string>
+    <string name="cap_injection">audio_injection_verified</string>
+    <string name="cap_backend_only">ऐप द्वारा कभी सेट नहीं</string>
+    <string name="cap_wifi_calling">wifi_calling_active</string>
+    <string name="perm_send_caps">session.capabilities भेजें</string>
+    <string name="perm_send_caps_offline">पहले PC से कनेक्ट करें; क्षमताएँ हर हार्टबीट में भी शामिल होती हैं।</string>
+    <string name="perm_limits_title">सामान्य ऐप क्या नहीं कर सकता</string>
+    <string name="perm_limits_text">• MediaRecorder.AudioSource.VOICE_CALL / VOICE_DOWNLINK / VOICE_UPLINK के लिए सिस्टम अनुमति CAPTURE_AUDIO_OUTPUT चाहिए, जो तृतीय-पक्ष ऐप्स को नहीं मिलती।\n• AudioPlaybackCapture वॉइस-कॉल ऑडियो को स्पष्ट रूप से बाहर रखता है।\n• सेल्युलर/VoWiFi अपलिंक में ऑडियो डालने का कोई सार्वजनिक API नहीं है।\n• TelephonyManager.isWifiCallingAvailable छिपा हुआ है; VoWiFi स्थिति अज्ञात बताई जाती है।\nइसलिए यह सॉफ़्टवेयर केवल ध्वनिक मार्ग (लाउडस्पीकर → दूसरा पक्ष, निकट-छोर माइक्रोफ़ोन) का परीक्षण कर सकता है।</string>
+
+    <string name="fgs_channel_name">SELL AGENT कनेक्शन</string>
+    <string name="fgs_channel_description">कॉल के दौरान Windows PC से लिंक बनाए रखता है</string>
+    <string name="fgs_title">SELL AGENT</string>
+    <string name="fgs_default_reason">PC से जुड़ा</string>
+    <string name="fgs_reason_verify">फ़ोरग्राउंड सेवा सत्यापित हो रही है</string>
+</resources>

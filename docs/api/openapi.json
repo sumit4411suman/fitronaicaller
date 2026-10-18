@@ -10633,7 +10633,8 @@
             "type": "string",
             "enum": [
               "manual",
-              "android_companion"
+              "android_companion",
+              "media_gateway"
             ],
             "title": "Route",
             "default": "manual"

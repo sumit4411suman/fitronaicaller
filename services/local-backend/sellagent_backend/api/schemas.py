@@ -234,7 +234,7 @@ class CallJobIn(BaseModel):
     contact_id: str
     campaign_id: str | None = None
     mode: Literal["human_assisted", "autonomous"] | None = None
-    route: Literal["manual", "android_companion"] = "manual"
+    route: Literal["manual", "android_companion", "media_gateway"] = "manual"
     scheduled_for: datetime | None = None
     idempotency_key: str | None = Field(default=None, max_length=128)
     device_id: str | None = None

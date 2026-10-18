@@ -43,7 +43,7 @@ from sellagent_backend.security.secret_store import read_secret_file, write_secr
 from sellagent_backend.security.tls import ensure_certificate
 from sellagent_backend.security.tokens import generate_token, hash_token
 from sellagent_backend.services import settings_service
-from sellagent_backend.telecom import AndroidCompanionAdapter, ManualAdapter
+from sellagent_backend.telecom import AndroidCompanionAdapter, ManualAdapter, MediaGatewayAdapter
 from sellagent_backend.ws.hub import Hub
 
 log = logging.getLogger("sellagent")
@@ -109,7 +109,7 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
         app.state.pairing = PairingManager(settings.pairing_code_ttl_seconds, settings.pairing_max_attempts)
         app.state.hub = Hub(sf)
         app.state.uploads = {}
-        app.state.telecom = {"manual": ManualAdapter(), "android_companion": AndroidCompanionAdapter(app.state.hub, sf)}
+        app.state.telecom = {"manual": ManualAdapter(), "android_companion": AndroidCompanionAdapter(app.state.hub, sf), "media_gateway": MediaGatewayAdapter(sf)}
         cert, key, fp = ensure_certificate(settings.data_dir)
         app.state.tls_fingerprint = fp
         app.state.lan = LanServer(create_device_app(app), settings.lan_host, settings.lan_port, str(cert), str(key), fp)
@@ -145,6 +145,23 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
         app.state.hub.on_emergency_stop.append(app.state.autonomy.emergency_stop)
         if not getattr(settings, "disable_workers", False):
             app.state.workers.start()
+        # Optional Asterisk AudioSocket server for the external media-gateway route (USB modem / SIP). Loopback
+        # only, started on boot when the gateway feature is on; the release gate still governs autonomous use.
+        app.state.audiosocket = None
+        try:
+            with sf() as s:
+                if settings_service.get(s, "gateway.enabled") and not getattr(settings, "disable_workers", False):
+                    from sellagent_backend.telecom.audiosocket import AudioSocketServer
+
+                    gw = app.state.telecom["media_gateway"]
+                    srv = AudioSocketServer(
+                        settings_service.get(s, "gateway.bind_host"), int(settings_service.get(s, "gateway.audiosocket_port")),
+                        resolve=gw.resolve_uuid, bind=gw.bind, unbind=gw.unbind,
+                    )
+                    srv.start()
+                    app.state.audiosocket = srv
+        except Exception:  # noqa: BLE001 - a gateway start failure must not stop the backend
+            log.exception("AudioSocket server failed to start; media-gateway route unavailable")
         task = asyncio.create_task(housekeeping())
         log.info("%s %s backend ready on http://%s:%s (data: %s)", APP_NAME, APP_VERSION, settings.host, settings.port, settings.data_dir)
         try:
@@ -152,6 +169,8 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
         finally:
             task.cancel()
             app.state.autonomy.stop("backend shutting down")
+            if getattr(app.state, "audiosocket", None) is not None:
+                app.state.audiosocket.stop()
             await app.state.workers.stop()
             if app.state.lan.running:
                 await app.state.lan.stop()

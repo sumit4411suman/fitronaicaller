@@ -118,7 +118,7 @@ def test_audio_tests_release_gate(client):
     assert gate["allowed"] is False
     assert client.patch("/api/v1/settings", json={"values": {"calling.autonomous_enabled": True}}).status_code == 400
     plan = client.get("/api/v1/audio-tests/plan").json()
-    assert len(plan["steps"]) == 18
+    assert len(plan["steps"]) == 23
     # simulated passes never open the gate
     for direction in ("inbound", "outbound"):
         r = client.post("/api/v1/audio-tests", json={"test_id": "AFT-SIM", "step": "remote_speech_capture", "direction": direction, "status": "pass", "kind": "simulated"}).json()

@@ -41,6 +41,13 @@ TEST_PLAN = [
     {"step": "jio_wifi_calling", "direction": "none", "title": "Behaviour when the phone is on Jio Wi-Fi Calling (VoWiFi) rather than another route"},
     {"step": "platform_api_support", "direction": "none", "title": "F. Call-audio access via public Android API, authorised OEM integration or documented carrier interface"},
     {"step": "jio_number_retention", "direction": "none", "title": "G. Existing Jio number kept for outbound caller ID and inbound calls"},
+    # Full-conversation steps: run once a VERIFIED gateway route (docs/CALLING_ARCHITECTURE.md) carries real
+    # two-way audio. They exercise the autonomous loop end to end; they do not open the gate on their own.
+    {"step": "language_switching", "direction": "both", "title": "Hindi<->English switching mid-call on real audio"},
+    {"step": "barge_in", "direction": "both", "title": "Caller interrupts; the AI stops speaking (barge-in) on real audio"},
+    {"step": "cancellation_emergency_stop", "direction": "none", "title": "Cancellation and emergency stop end the live AI call immediately"},
+    {"step": "disconnect_recovery", "direction": "none", "title": "Call disconnect and recovery / safe fallback to the operator"},
+    {"step": "end_to_end_conversation", "direction": "both", "title": "End-to-end FITRON sales conversation with a consenting test participant"},
 ]
 
 

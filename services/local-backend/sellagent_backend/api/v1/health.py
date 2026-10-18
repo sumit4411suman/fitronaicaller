@@ -6,6 +6,7 @@ import sys
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
+from sellagent_protocol import PROTOCOL_VERSION
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -13,7 +14,6 @@ from sellagent_backend.api.deps import get_db, require_local_auth
 from sellagent_backend.config import APP_NAME, APP_VERSION
 from sellagent_backend.db import migrate
 from sellagent_backend.security.secret_store import protection_mode
-from sellagent_protocol import PROTOCOL_VERSION
 
 router = APIRouter(prefix="/health", tags=["health"])
 

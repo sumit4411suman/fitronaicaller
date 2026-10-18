@@ -11,11 +11,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import WebSocket
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
-
-from sellagent_backend.db.models import AudioTest, Call, CallEvent, CallJob, PairedDevice
-from sellagent_backend.services import audit, call_jobs, settings_service
 from sellagent_protocol import (
     AudioTestEvent,
     AudioTestResult,
@@ -33,6 +28,11 @@ from sellagent_protocol import (
     ReconnectResponse,
 )
 from sellagent_protocol.messages import Ack
+from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
+
+from sellagent_backend.db.models import AudioTest, Call, CallEvent, CallJob, PairedDevice
+from sellagent_backend.services import audit, call_jobs, settings_service
 
 log = logging.getLogger("sellagent.ws")
 
@@ -77,8 +77,8 @@ class Hub:
         if old is not None and old is not ws:
             try:
                 await old.close(code=4000, reason="replaced by a new connection")
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                log.debug("closing superseded device socket failed: %s", exc)
         await self.broadcast_desktop(Envelope(type=MessageType.HEARTBEAT, payload=Heartbeat(device_id=device_id, network="unknown").model_dump(mode="json")))
 
     async def unregister_device(self, device_id: str, ws: WebSocket) -> None:
@@ -176,7 +176,6 @@ class Hub:
     async def handle_device_message(self, device: PairedDevice, raw: str) -> Envelope | None:
         """Validate, de-duplicate and process one device message. Returns a reply envelope (or None)."""
         from pydantic import ValidationError
-
         from sellagent_protocol import parse_envelope
 
         try:

@@ -8,11 +8,10 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
-
 from sellagent_backend.app import create_app
 from sellagent_backend.config import Settings, reset_settings
 from sellagent_backend.db import make_engine, make_session_factory, migrate
+from sqlalchemy.orm import Session
 
 LOCAL_TOKEN = "test-local-token-0123456789abcdef"
 

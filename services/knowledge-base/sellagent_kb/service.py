@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from sellagent_backend.db.models import KnowledgeChunk, KnowledgeDocument
+from sellagent_backend.services import audit
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from sellagent_backend.db.models import KnowledgeChunk, KnowledgeDocument
-from sellagent_backend.services import audit
 from sellagent_kb.chunking import chunk_text, estimate_tokens
 
 CATEGORIES = ("pricing", "offer", "product", "faq", "objection", "compliance", "general")

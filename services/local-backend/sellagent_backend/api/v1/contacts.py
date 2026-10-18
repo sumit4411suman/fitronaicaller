@@ -11,7 +11,18 @@ from sqlalchemy.orm import Session
 
 from sellagent_backend.api.deps import get_db, require_local_auth
 from sellagent_backend.api.schemas import (
-    ContactIn, ContactOut, ContactPatch, ImportMappingIn, Ok, OptOutIn, Page, PermissionIn, PermissionOut, SuppressionIn, SuppressionLift, SuppressionOut,
+    ContactIn,
+    ContactOut,
+    ContactPatch,
+    ImportMappingIn,
+    Ok,
+    OptOutIn,
+    Page,
+    PermissionIn,
+    PermissionOut,
+    SuppressionIn,
+    SuppressionLift,
+    SuppressionOut,
 )
 from sellagent_backend.api.v1.errors import bad_request, conflict, not_found
 from sellagent_backend.db.models import Contact, ContactPermission

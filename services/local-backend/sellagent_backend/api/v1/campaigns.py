@@ -5,7 +5,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from sellagent_backend.api.deps import get_db, require_local_auth
-from sellagent_backend.api.schemas import CampaignIn, CampaignOut, CampaignPatch, CampaignTransition, ContactOut, IdList
+from sellagent_backend.api.schemas import (
+    CampaignIn,
+    CampaignOut,
+    CampaignPatch,
+    CampaignTransition,
+    ContactOut,
+    IdList,
+)
 from sellagent_backend.api.v1.errors import bad_request, not_found
 from sellagent_backend.db.models import Campaign
 from sellagent_backend.services import campaigns as svc

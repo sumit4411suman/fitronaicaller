@@ -28,7 +28,7 @@ DEFAULTS: dict[str, Any] = {
     "calling.default_mode": "human_assisted",
     "calling.autonomous_enabled": False,
     "calling.quiet_hours_start": "21:00",
-    "calling.quiet_hours_end": "09:00",
+    "calling.quiet_hours_end": "10:00",
     "calling.max_calls_per_hour": 10,
     "calling.max_calls_per_day": 50,
     "calling.min_seconds_between_calls": 60,

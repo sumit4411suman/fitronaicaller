@@ -1,10 +1,15 @@
 import time
 
 import pytest
-
 from sellagent_backend.security.pairing import PairingManager, PendingPairing
 from sellagent_backend.security.secret_store import protection_mode, read_secret_file, write_secret_file
-from sellagent_backend.security.tokens import generate_pairing_code, generate_token, hash_token, normalize_pairing_code, tokens_match
+from sellagent_backend.security.tokens import (
+    generate_pairing_code,
+    generate_token,
+    hash_token,
+    normalize_pairing_code,
+    tokens_match,
+)
 from sellagent_backend.services.audit import redact
 
 pytestmark = pytest.mark.automated

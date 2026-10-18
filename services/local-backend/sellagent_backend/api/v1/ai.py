@@ -6,6 +6,10 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter, Depends, Request
+from sellagent_ai.conversation import ConversationContext, ConversationStateMachine, KnowledgeFact, State
+from sellagent_ai.guardrails import check_reply
+from sellagent_ai.language import detect
+from sellagent_ai.llm import ChatMessage, ProviderUnavailable, collect, make_provider
 from sqlalchemy.orm import Session
 
 from sellagent_backend.api.deps import get_db, require_local_auth
@@ -13,10 +17,6 @@ from sellagent_backend.api.schemas import ChatTestIn, ConversationStepIn, ModelP
 from sellagent_backend.api.v1.errors import bad_request
 from sellagent_backend.db.models import AIRun
 from sellagent_backend.services import settings_service
-from sellagent_ai.conversation import ConversationContext, ConversationStateMachine, KnowledgeFact, State
-from sellagent_ai.guardrails import check_reply
-from sellagent_ai.language import detect
-from sellagent_ai.llm import ChatMessage, ProviderUnavailable, collect, make_provider
 
 router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(require_local_auth)])
 
@@ -48,8 +48,7 @@ def catalog() -> dict:
     """Candidate models for a 16 GB CPU-only PC. Sizes are approximate download sizes; verify in Ollama before pulling."""
     return {"note": "Nothing is downloaded automatically. Benchmarks on YOUR hardware decide the pick (python -m sellagent_ai.benchmark).", "candidates": [
         {"name": "qwen3:1.7b", "params": "1.7B", "approx_download_gb": 1.4, "approx_ram_gb": 2.5, "license": "Apache-2.0", "notes": "Default candidate. Hindi/English capable; set think=false for latency."},
-        {"name": "qwen2.5:3b", "params": "3B", "approx_download_gb": 1.9, "approx_ram_gb": 3.5, "license": "Qwen Research License (check terms)", "notes": "Alternative with better instruction following; slower first token on CPU."},
-        {"name": "qwen3:4b", "params": "4B", "approx_download_gb": 2.6, "approx_ram_gb": 5, "license": "Apache-2.0", "notes": "Only if 3B-class latency is acceptable."},
+        {"name": "qwen3:4b", "params": "4B", "approx_download_gb": 2.6, "approx_ram_gb": 5, "license": "Apache-2.0", "notes": "3B-class alternative; slower first token on CPU. (Qwen2.5-3B was dropped: Qwen Research License is non-commercial.)"},
     ]}
 
 

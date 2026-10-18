@@ -7,6 +7,7 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
+from sellagent_protocol import PROTOCOL_VERSION
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,7 +18,6 @@ from sellagent_backend.db.models import PairedDevice
 from sellagent_backend.security.pairing import PendingPairing
 from sellagent_backend.security.tokens import generate_token, hash_token
 from sellagent_backend.services import audit
-from sellagent_protocol import PROTOCOL_VERSION
 
 router = APIRouter(prefix="/devices", tags=["devices"], dependencies=[Depends(require_local_auth)])
 device_public_router = APIRouter(prefix="/devices", tags=["devices-public"])
@@ -106,8 +106,10 @@ async def revoke(device_id: str, request: Request, db: Session = Depends(get_db)
     if ws is not None:
         try:
             await ws.close(code=4001, reason="revoked")
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            import logging
+
+            logging.getLogger("sellagent.devices").warning("closing revoked device socket failed: %s", exc)
     return dev
 
 

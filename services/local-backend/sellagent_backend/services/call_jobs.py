@@ -11,7 +11,15 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sellagent_backend.db.models import Call, CallEvent, CallJob, Campaign, CampaignContact, Contact, PairedDevice
+from sellagent_backend.db.models import (
+    Call,
+    CallEvent,
+    CallJob,
+    Campaign,
+    CampaignContact,
+    Contact,
+    PairedDevice,
+)
 from sellagent_backend.security.tokens import generate_token, hash_token
 from sellagent_backend.services import audit, eligibility, settings_service
 

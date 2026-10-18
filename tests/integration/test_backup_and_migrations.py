@@ -1,10 +1,11 @@
 from pathlib import Path
 
 import pytest
-from sqlalchemy import text
-
 from sellagent_backend.db import make_engine, migrate
 from sellagent_backend.services import backup
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+
 from tests.conftest import make_contact
 
 pytestmark = pytest.mark.automated
@@ -30,7 +31,7 @@ def test_foreign_keys_enforced(db):
     from sellagent_backend.db.models import ContactPermission
 
     db.add(ContactPermission(contact_id="does-not-exist", status="granted", source="x"))
-    with pytest.raises(Exception):
+    with pytest.raises(IntegrityError):
         db.flush()
     db.rollback()
 
@@ -44,7 +45,7 @@ def test_transaction_rollback_on_failed_import(client, settings):
     parsed = import_export.parse_file("g.csv", b"business,phone\nA,9876543210\nB,9123456780\n")
     with sf() as s:
         # simulate a crash after first create by passing an invalid campaign id (FK violation at flush)
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             import_export.commit(s, parsed, parsed.suggested_mapping, campaign_id="missing-campaign")
             s.commit()
         s.rollback()

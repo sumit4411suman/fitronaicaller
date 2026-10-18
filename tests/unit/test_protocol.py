@@ -1,7 +1,15 @@
 import pytest
 from pydantic import ValidationError
-
-from sellagent_protocol import PROTOCOL_VERSION, CallRequest, CallState, CallStateEvent, Envelope, Heartbeat, MessageType, parse_envelope
+from sellagent_protocol import (
+    PROTOCOL_VERSION,
+    CallRequest,
+    CallState,
+    CallStateEvent,
+    Envelope,
+    Heartbeat,
+    MessageType,
+    parse_envelope,
+)
 from sellagent_protocol.messages import export_json_schemas
 
 pytestmark = pytest.mark.automated

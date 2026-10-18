@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from sellagent_speech import EnergyVAD, FasterWhisperSTT, PiperTTS, VadConfig
 from sellagent_speech.audio_io import resample
 from sellagent_speech.diagnostics import synthetic_vad_selftest

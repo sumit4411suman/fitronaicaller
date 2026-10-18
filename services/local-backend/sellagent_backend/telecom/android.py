@@ -6,13 +6,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+from sellagent_protocol import CallRequest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from sellagent_backend.db.models import AudioTest, PairedDevice
 from sellagent_backend.telecom.base import RouteCapabilities
 from sellagent_backend.ws.hub import Hub
-from sellagent_protocol import CallRequest
 
 
 def audio_gate_status(session: Session, device_id: str | None = None) -> dict:

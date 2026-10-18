@@ -9,6 +9,9 @@ import wave
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, Request, UploadFile
+from sellagent_speech import FasterWhisperSTT, PiperTTS, STTUnavailable, TTSUnavailable
+from sellagent_speech.audio_io import devices, resample
+from sellagent_speech.diagnostics import synthetic_vad_selftest, tts_to_stt_loopback
 from sqlalchemy.orm import Session
 
 from sellagent_backend.api.deps import get_db, require_local_auth
@@ -16,9 +19,6 @@ from sellagent_backend.api.schemas import TTSIn
 from sellagent_backend.api.v1.errors import bad_request
 from sellagent_backend.db.models import AIRun
 from sellagent_backend.services import settings_service
-from sellagent_speech import FasterWhisperSTT, PiperTTS, STTUnavailable, TTSUnavailable
-from sellagent_speech.audio_io import devices, resample
-from sellagent_speech.diagnostics import synthetic_vad_selftest, tts_to_stt_loopback
 
 router = APIRouter(prefix="/speech", tags=["speech"], dependencies=[Depends(require_local_auth)])
 

@@ -1,9 +1,9 @@
 import json
 
 import pytest
+from sellagent_protocol import CallState, CallStateEvent, DeviceCapabilities, Envelope, Heartbeat, MessageType
 from starlette.websockets import WebSocketDisconnect
 
-from sellagent_protocol import CallState, CallStateEvent, DeviceCapabilities, Envelope, Heartbeat, MessageType
 from tests.conftest import LOCAL_TOKEN, make_contact, open_hours
 
 pytestmark = pytest.mark.automated

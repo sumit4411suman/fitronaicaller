@@ -1,6 +1,11 @@
 import pytest
-
-from sellagent_ai.conversation import ConversationContext, ConversationEngine, ConversationStateMachine, KnowledgeFact, State
+from sellagent_ai.conversation import (
+    ConversationContext,
+    ConversationEngine,
+    ConversationStateMachine,
+    KnowledgeFact,
+    State,
+)
 from sellagent_ai.guardrails import check_reply
 from sellagent_ai.llm import ChatMessage, NullProvider
 

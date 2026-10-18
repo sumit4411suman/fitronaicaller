@@ -1,15 +1,31 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
+from sellagent_kb import (
+    KnowledgeError,
+    approve,
+    create_document,
+    reject,
+    retrieve,
+    screen_for_injection,
+    supersede,
+)
+from sellagent_kb import service as kbs
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from sellagent_backend.api.deps import get_db, require_local_auth
-from sellagent_backend.api.schemas import KnowledgeApprove, KnowledgeIn, KnowledgeOut, KnowledgeReject, KnowledgeSupersede, Ok, RetrieveOut
+from sellagent_backend.api.schemas import (
+    KnowledgeApprove,
+    KnowledgeIn,
+    KnowledgeOut,
+    KnowledgeReject,
+    KnowledgeSupersede,
+    Ok,
+    RetrieveOut,
+)
 from sellagent_backend.api.v1.errors import bad_request, not_found
 from sellagent_backend.db.models import KnowledgeDocument
-from sellagent_kb import KnowledgeError, approve, create_document, reject, retrieve, screen_for_injection, supersede
-from sellagent_kb import service as kbs
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"], dependencies=[Depends(require_local_auth)])
 

@@ -41,8 +41,8 @@ class Settings(BaseSettings):
     device_token_ttl_days: int = 90
     # Calls / safety
     default_calling_mode: str = "human_assisted"
-    quiet_hours_start: str = "21:00"  # local time, India default per common practice; configurable
-    quiet_hours_end: str = "09:00"
+    quiet_hours_start: str = "21:00"  # TRAI TCCCPR default permitted window is 10:00-21:00 local; configurable but not advised
+    quiet_hours_end: str = "10:00"
     max_calls_per_hour: int = 10
     max_calls_per_day: int = 50
     min_seconds_between_calls: int = 60

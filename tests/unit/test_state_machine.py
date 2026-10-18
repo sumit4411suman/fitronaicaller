@@ -1,6 +1,13 @@
 import pytest
-
-from sellagent_ai.conversation import LIVE, TERMINAL, TRANSITIONS, ConversationContext, ConversationStateMachine, InvalidTransition, State
+from sellagent_ai.conversation import (
+    LIVE,
+    TERMINAL,
+    TRANSITIONS,
+    ConversationContext,
+    ConversationStateMachine,
+    InvalidTransition,
+    State,
+)
 
 pytestmark = pytest.mark.automated
 

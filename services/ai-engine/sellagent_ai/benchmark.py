@@ -1,6 +1,6 @@
 """Benchmark local LLMs on the target machine. Run on the Windows PC:
 
-    python -m sellagent_ai.benchmark --provider ollama --models qwen3:1.7b qwen2.5:3b --out docs/benchmarks/llm.json
+    python -m sellagent_ai.benchmark --provider ollama --models qwen3:1.7b qwen3:4b --out docs/benchmarks/llm.json
 
 Measures: model availability, first-token latency, tokens/s, total time, Ollama process RSS (psutil), Hindi and English
 quality probes (does the reply stay in language, does it avoid inventing numbers), and JSON-format reliability.
@@ -108,7 +108,7 @@ def run(provider_kind: str, models: list[str], runs: int = 3, ollama_url: str = 
 def cli(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Benchmark local LLMs for SELL AGENT")
     ap.add_argument("--provider", default="ollama", choices=["ollama", "llamacpp"])
-    ap.add_argument("--models", nargs="+", default=["qwen3:1.7b", "qwen2.5:3b"])
+    ap.add_argument("--models", nargs="+", default=["qwen3:1.7b", "qwen3:4b"])
     ap.add_argument("--runs", type=int, default=3)
     ap.add_argument("--out", default="")
     a = ap.parse_args(argv)

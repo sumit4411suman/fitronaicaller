@@ -33,7 +33,7 @@ def test_injection_screening_blocks_approval_until_acknowledged(client):
 
 
 def test_import_txt_is_untrusted_and_versioning(client):
-    r = client.post("/api/v1/knowledge/import", files={"file": ("faq.txt", "FITRON supports monthly billing. ".encode(), "text/plain")}, params={"category": "faq"})
+    r = client.post("/api/v1/knowledge/import", files={"file": ("faq.txt", b"FITRON supports monthly billing. ", "text/plain")}, params={"category": "faq"})
     assert r.status_code == 201 and r.json()["trusted"] is False and r.json()["status"] == "pending_review"
     doc = r.json()
     client.post(f"/api/v1/knowledge/{doc['id']}/approve", json={})

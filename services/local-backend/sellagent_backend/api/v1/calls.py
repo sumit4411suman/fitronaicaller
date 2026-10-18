@@ -5,18 +5,36 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query, Request
+from sellagent_ai.conversation import (
+    OUTCOMES,
+    ConversationContext,
+    ConversationStateMachine,
+    InvalidTransition,
+    KnowledgeFact,
+    State,
+)
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from sellagent_backend.api.deps import get_db, require_local_auth
-from sellagent_backend.api.schemas import CallJobIn, CallJobOut, CallOutcomeIn, CancelIn, ConversationStepIn, EmergencyStopIn, NoteIn, Ok, Page, TranscriptIn
+from sellagent_backend.api.schemas import (
+    CallJobIn,
+    CallJobOut,
+    CallOutcomeIn,
+    CancelIn,
+    ConversationStepIn,
+    EmergencyStopIn,
+    NoteIn,
+    Ok,
+    Page,
+    TranscriptIn,
+)
 from sellagent_backend.api.v1.errors import bad_request, not_found
 from sellagent_backend.db.models import Call, CallEvent, CallJob, CallNote, Contact, Transcript
 from sellagent_backend.services import call_jobs as svc
 from sellagent_backend.services import contacts as contacts_svc
 from sellagent_backend.services import followups, reports, settings_service
 from sellagent_backend.services.call_jobs import CallJobError
-from sellagent_ai.conversation import OUTCOMES, ConversationContext, ConversationStateMachine, InvalidTransition, KnowledgeFact, State
 
 router = APIRouter(prefix="/call-jobs", tags=["calls"], dependencies=[Depends(require_local_auth)])
 calls_router = APIRouter(prefix="/calls", tags=["calls"], dependencies=[Depends(require_local_auth)])

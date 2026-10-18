@@ -12,9 +12,26 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sellagent_ai.conversation import ConversationEngine
+from sellagent_ai.llm import make_provider
+from sellagent_kb import seed_fitron_defaults
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from sellagent_backend.api.v1 import ai, audio_tests, auth, calls, campaigns, contacts, devices, followups, health, knowledge, reports, speech, ws
+from sellagent_backend.api.v1 import (
+    ai,
+    audio_tests,
+    auth,
+    calls,
+    campaigns,
+    contacts,
+    devices,
+    followups,
+    health,
+    knowledge,
+    reports,
+    speech,
+    ws,
+)
 from sellagent_backend.api.v1 import settings as settings_api
 from sellagent_backend.config import API_PREFIX, APP_NAME, APP_VERSION, Settings, get_settings
 from sellagent_backend.db import make_engine, make_session_factory, migrate
@@ -26,9 +43,6 @@ from sellagent_backend.security.tokens import generate_token, hash_token
 from sellagent_backend.services import call_jobs, settings_service
 from sellagent_backend.telecom import AndroidCompanionAdapter, ManualAdapter
 from sellagent_backend.ws.hub import Hub
-from sellagent_ai.conversation import ConversationEngine
-from sellagent_ai.llm import make_provider
-from sellagent_kb import seed_fitron_defaults
 
 log = logging.getLogger("sellagent")
 

@@ -6,11 +6,11 @@ import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from sellagent_protocol import Envelope, ErrorEvent, MessageType
 from sqlalchemy import select
 
 from sellagent_backend.db.models import PairedDevice
 from sellagent_backend.security.tokens import hash_token, is_expired, tokens_match
-from sellagent_protocol import Envelope, ErrorEvent, MessageType
 
 log = logging.getLogger("sellagent.ws")
 router = APIRouter(prefix="/ws", tags=["websocket"])
@@ -75,7 +75,8 @@ async def desktop_ws(ws: WebSocket) -> None:
             # Desktop may send emergency stop over the socket for lowest latency
             try:
                 env = Envelope.model_validate_json(raw)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                log.debug("ignoring malformed desktop message: %s", exc)
                 continue
             if env.type == MessageType.EMERGENCY_STOP:
                 from sellagent_protocol import EmergencyStop

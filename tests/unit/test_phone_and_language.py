@@ -1,5 +1,4 @@
 import pytest
-
 from sellagent_ai.language import detect, resolve
 from sellagent_backend.services.phone import PhoneError, normalize, number_type
 

@@ -8,6 +8,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import JSON as SA_JSON
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -21,7 +22,6 @@ from sqlalchemy import (
     TypeDecorator,
     UniqueConstraint,
 )
-from sqlalchemy import JSON as SA_JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from sellagent_backend.db.base import Base

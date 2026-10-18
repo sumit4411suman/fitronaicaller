@@ -1,5 +1,7 @@
 """Screen 10: Call Console per the mockup. Human-assisted: the OPERATOR speaks the agent line. The state chip always
-shows the REAL conversation_state. 'AI Speaking' is never shown in this release (autonomous mode is release-gated)."""
+shows the REAL conversation_state. Optional AI voice bridge: with the phone on speakerphone next to the PC, the operator
+can let the AI talk (PC speaker + PC mic) on a call they are watching, and take over at any moment. Autonomous
+(unattended) calling stays release-gated."""
 
 from __future__ import annotations
 
@@ -255,6 +257,28 @@ class LiveCallScreen(BaseScreen):
         self.tx_status = caption("Disabled by default (Settings › privacy.allow_live_transcription). Uses the PC microphone or line-in; audio stays in memory.")
         tc.add(self.tx_status)
         cl.addWidget(tc)
+        bc = Card("AI voice (experimental) - phone on speakerphone next to the PC")
+        bc.setObjectName("ai_bridge_card")
+        br = QHBoxLayout()
+        self.bridge_btn = button("Let AI talk", "primary", self.start_bridge, tooltip="The AI asks the prospect for consent, then talks through the PC speaker and listens through the PC microphone. You can take over any time.")
+        self.bridge_btn.setObjectName("bridge_start_btn")
+        self.bridge_btn.setProperty("perm", "calls:write")
+        self.takeover_btn = button("Take over", "danger", self.stop_bridge, tooltip="Stop the AI immediately; the call stays with you")
+        self.takeover_btn.setObjectName("bridge_stop_btn")
+        self.takeover_btn.setEnabled(False)
+        br.addWidget(self.bridge_btn)
+        br.addWidget(self.takeover_btn)
+        self.bridge_chip = chip("AI off", "neutral")
+        self.bridge_chip.setObjectName("bridge_chip")
+        br.addWidget(self.bridge_chip)
+        br.addStretch(1)
+        bw = QWidget()
+        bw.setLayout(br)
+        bc.add(bw)
+        self.bridge_status = caption("Off by default (Settings > bridge.enabled). Only for contacts who agreed to be called. Put the phone on speakerphone close to the PC speaker and microphone, in a quiet room.")
+        self.bridge_status.setWordWrap(True)
+        bc.add(self.bridge_status)
+        cl.addWidget(bc)
         self.summary_card = SummaryCard()
         self.summary_card.setVisible(False)
         cl.addWidget(self.summary_card)
@@ -489,6 +513,48 @@ class LiveCallScreen(BaseScreen):
         if cid and confirm(self, "End call", "End this call and cancel its job? Record an outcome instead if the conversation happened.", "End call", danger=True):
             self.run(lambda: self.api.post(f"/calls/{cid}/cancel", {"reason": "operator_cancel"}), lambda _: self.refresh())
 
+    # ------------------------------------------------------------------ AI voice bridge
+    def start_bridge(self) -> None:
+        cid = self.call_id
+        if not cid or not self.call or self.call["call"].get("conversation_state") not in LIVE_STATES:
+            self.toast("Select a live call and press Connected first", "warning")
+            return
+        if self.tx_thread is not None:
+            self.toast("Stop live transcription first: the AI uses the PC microphone", "warning")
+            return
+        if not confirm(self, "Let AI talk", "The AI will introduce itself as an automated assistant, ask the prospect for consent, and then talk through the PC speaker. Keep the phone on speakerphone next to the PC. You can press Take over at any moment.", "Start AI"):
+            return
+        self.run(lambda: self.api.post(f"/calls/{cid}/bridge/start", {"language": self.language.currentData() or "auto", "use_llm": True}), self._bridge_started, on_error=lambda e: self._bridge_set("AI could not start: " + str(e), "danger", active=False))
+
+    def _bridge_started(self, _r: dict) -> None:
+        self._bridge_set("AI is on the call. Watch the transcript; press Take over to speak yourself.", "success", active=True)
+
+    def stop_bridge(self) -> None:
+        cid = self.call_id
+        if cid:
+            self.run(lambda: self.api.post(f"/calls/{cid}/bridge/stop"), lambda _: self._bridge_set("Stopping the AI. The call is yours.", "warning", active=False))
+
+    def _bridge_set(self, text: str, kind: str, *, active: bool) -> None:
+        self.bridge_status.setText(text)
+        set_chip(self.bridge_chip, "AI on call" if active else "AI off", kind if active else "neutral")
+        self.bridge_btn.setEnabled(not active)
+        self.takeover_btn.setEnabled(active)
+
+    def _bridge_event(self, name: str, data: dict) -> None:
+        if data.get("call_id") != self.call_id:
+            return
+        if name == "bridge.speaking":
+            self._bridge_set("AI speaking: " + str(data.get("text", ""))[:160], "success", active=True)
+        elif name == "bridge.listening":
+            self._bridge_set("AI listening…", "info", active=True)
+        elif name == "bridge.heard":
+            self._bridge_set("Prospect: " + str(data.get("text", ""))[:160], "info", active=True)
+            self.load_call()
+        elif name == "bridge.finished":
+            why = data.get("error") or data.get("stop_reason") or f"outcome {data.get('outcome')}"
+            self._bridge_set(f"AI finished ({data.get('status')}): {why}", "danger" if data.get("error") else "neutral", active=False)
+            self.load_call()
+
     # ------------------------------------------------------------------ live transcription
     def toggle_transcription(self) -> None:
         if self.tx_thread is not None:
@@ -580,6 +646,9 @@ class LiveCallScreen(BaseScreen):
             if self.call and (self.call.get("job") or {}).get("id") == p.get("call_job_id"):
                 self.device_events.addItem(f"{fmt_dt(p.get('occurred_at'), True)} device → {p.get('state')} route={p.get('audio_route')} cause={p.get('disconnect_cause') or ''}")
                 self.load_call()
+        elif t == "event" and str((env.get("payload") or {}).get("name", "")).startswith("bridge."):
+            p = env.get("payload") or {}
+            self._bridge_event(p.get("name", ""), p.get("data") or {})
         elif t == "safety.emergency_stop":
             self.stop_banner.setVisible(True)
             if self.call_id:

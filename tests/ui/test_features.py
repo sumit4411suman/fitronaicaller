@@ -453,3 +453,31 @@ def test_users_roles_switch_user_and_permissions(window, backend, qapp, monkeypa
     wait_idle()
     assert window.screens["contacts"].new_btn.isEnabled()
     assert settings_tabs.isTabVisible(settings_tabs.indexOf(window.screens["users"]))
+
+
+def test_ai_bridge_controls_on_call_console(window, backend, qapp, monkeypatch):
+    """The AI voice bridge is off by default; when the backend refuses, the reason is shown and the operator keeps
+    control. Bridge events from the backend drive the AI chip and the Take over button."""
+    import sellagent_desktop.screens.live_call as live_mod
+
+    call_id = _live_call(backend, "Bridge Gym", "+91 98999 00112")
+    window.navigate("live_call", call_id=call_id)
+    wait_idle()
+    live = window.screens["live_call"]
+    monkeypatch.setattr(live_mod, "confirm", lambda *a, **k: True)
+    live.start_bridge()
+    wait_idle()
+    assert _wait_until(qapp, lambda: "could not start" in live.bridge_status.text(), 15)
+    assert "switched off" in live.bridge_status.text()
+    assert live.bridge_btn.isEnabled() and not live.takeover_btn.isEnabled() and live.bridge_chip.text() == "AI off"
+    live.on_ws_event({"type": "event", "payload": {"name": "bridge.speaking", "data": {"call_id": call_id, "text": "Namaste, this is an automated AI assistant"}}})
+    assert live.bridge_chip.text() == "AI on call" and live.takeover_btn.isEnabled() and not live.bridge_btn.isEnabled()
+    assert "automated AI assistant" in live.bridge_status.text()
+    # events for another call are ignored
+    live.on_ws_event({"type": "event", "payload": {"name": "bridge.finished", "data": {"call_id": "other", "status": "finished"}}})
+    assert live.bridge_chip.text() == "AI on call"
+    live.on_ws_event({"type": "event", "payload": {"name": "bridge.finished", "data": {"call_id": call_id, "status": "stopped", "stop_reason": "operator took over"}}})
+    wait_idle()
+    assert live.bridge_chip.text() == "AI off" and "operator took over" in live.bridge_status.text() and live.bridge_btn.isEnabled()
+    with backend.client() as c:
+        c.post(f"/api/v1/calls/{call_id}/outcome", json={"outcome": "not_interested"})

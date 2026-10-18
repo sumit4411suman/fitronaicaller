@@ -147,7 +147,11 @@ class CampaignsScreen(BaseScreen):
         split.setSizes([520, 560])
         self.root.addWidget(split, 1)
         self.current: dict | None = None
+        self._open_new = False
         self._select()
+
+    def set_context(self, new: bool = False, **_: object) -> None:
+        self._open_new = bool(new)
 
     def refresh(self) -> None:
         self.run(lambda: (self.api.get("/campaigns", status=self.status_filter.currentData()), self.api.get("/settings/release-gate")), self._show)
@@ -163,6 +167,9 @@ class CampaignsScreen(BaseScreen):
                     self.table.selectRow(i)
                     break
         self._select()
+        if self._open_new:
+            self._open_new = False
+            self.new_campaign()
 
     def _select(self) -> None:
         row = self.table.selected_row()

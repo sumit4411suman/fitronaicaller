@@ -1,19 +1,20 @@
-"""Screen 4: CRM contact list with search/filter/sort/paging, archive, open detail and the New contact dialog."""
+"""Screen 4: Contacts per the mockup — search, filter chips, table with status chips and quick actions, New contact dialog."""
 
 from __future__ import annotations
 
 import re
 
-from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QWidget
+from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QWidget
 
 from sellagent_desktop.api_client import ApiError
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import DataTable, EmptyState, FormDialog, button, combo, confirm, fmt_dt
+from sellagent_desktop.widgets import STAGE_CHIP, DataTable, EmptyState, FormDialog, button, chip, combo, confirm, fmt_dt
 
 LEAD_STAGES = ("new", "contacted", "interested", "demo_scheduled", "converted", "not_interested", "do_not_call")
 CONSENT = ("unknown", "granted", "denied", "withdrawn")
 PHONE_RE = re.compile(r"^[+\d][\d\s\-()]{3,39}$")
 PAGE = 50
+FILTER_CHIPS = [("all", "All"), ("not_called", "Not called"), ("followup", "Follow-up"), ("interested", "Interested"), ("dnc", "Do not call")]
 
 
 class ContactDialog(FormDialog):
@@ -68,7 +69,7 @@ class ContactDialog(FormDialog):
 
 
 class ContactsScreen(BaseScreen):
-    key, title = "contacts", "CRM contacts"
+    key, title = "contacts", "Contacts"
 
     def build(self) -> None:
         bar = QHBoxLayout()
@@ -76,8 +77,31 @@ class ContactsScreen(BaseScreen):
         self.search.setPlaceholderText("Search business, person, phone, city…")
         self.search.setAccessibleName("Search contacts")
         self.search.setObjectName("contacts_search")
+        self.search.setClearButtonEnabled(True)
         self.search.returnPressed.connect(self.first_page)
         bar.addWidget(self.search, 2)
+        bar.addWidget(button("Search", None, self.first_page))
+        self.new_btn = button("+ New contact", "primary", self.new_contact)
+        self.new_btn.setObjectName("new_contact_btn")
+        bar.addWidget(self.new_btn)
+        bar.addWidget(button("Import / export", None, lambda: self.ctx.navigate("import_export")))
+        self.root.addLayout(bar)
+
+        chips = QHBoxLayout()
+        self.chip_group = QButtonGroup(self)
+        self.chip_group.setExclusive(True)
+        self.filter_chips: dict[str, QPushButton] = {}
+        for key, label in FILTER_CHIPS:
+            b = QPushButton(label)
+            b.setProperty("role", "chip")
+            b.setCheckable(True)
+            b.setAccessibleName(f"Filter {label}")
+            b.clicked.connect(lambda _=False: self.first_page())
+            self.chip_group.addButton(b)
+            self.filter_chips[key] = b
+            chips.addWidget(b)
+        self.filter_chips["all"].setChecked(True)
+        chips.addSpacing(16)
         self.stage = combo([("all stages", None)] + [(s, s) for s in LEAD_STAGES])
         self.stage.setAccessibleName("Lead stage filter")
         self.consent = combo([("any consent", None)] + [(c, c) for c in CONSENT])
@@ -89,46 +113,46 @@ class ContactsScreen(BaseScreen):
         self.archived = QCheckBox("archived")
         self.archived.setAccessibleName("Show archived contacts")
         for w in (self.stage, self.consent, self.sort, self.desc, self.archived):
-            bar.addWidget(w)
+            chips.addWidget(w)
             if isinstance(w, QComboBox):
                 w.currentIndexChanged.connect(self.first_page)
             else:
                 w.stateChanged.connect(self.first_page)
-        bar.addWidget(button("Search", None, self.first_page))
-        self.root.addLayout(bar)
+        chips.addStretch(1)
+        self.root.addLayout(chips)
 
         actions = QHBoxLayout()
-        self.new_btn = button("New contact", "primary", self.new_contact)
-        self.new_btn.setObjectName("new_contact_btn")
         self.open_btn = button("Open detail", None, self.open_selected)
         self.archive_btn = button("Archive", None, self.archive_selected)
         self.queue_btn = button("Create call job", None, lambda: self._with_selected(lambda c: self.ctx.navigate("call_queue", contact_id=c["id"])))
         self.elig_btn = button("Check eligibility", None, lambda: self._with_selected(lambda c: self.ctx.navigate("eligibility", contact_id=c["id"])))
-        for b in (self.new_btn, self.open_btn, self.archive_btn, self.queue_btn, self.elig_btn):
+        for b in (self.open_btn, self.queue_btn, self.elig_btn, self.archive_btn):
             actions.addWidget(b)
         actions.addStretch(1)
-        actions.addWidget(button("Import / export", None, lambda: self.ctx.navigate("import_export")))
+        self.page_lbl = QLabel("")
+        self.prev_btn = button("◀", None, lambda: self.load(self.offset - PAGE))
+        self.next_btn = button("▶", None, lambda: self.load(self.offset + PAGE))
+        actions.addWidget(self.prev_btn)
+        actions.addWidget(self.page_lbl)
+        actions.addWidget(self.next_btn)
         self.root.addLayout(actions)
 
         self.table = DataTable([
-            ("Business", "business_name"), ("Person", "contact_person"), ("Phone", "phone_e164"), ("City", "city"), ("Stage", "lead_stage"),
-            ("Consent", "consent_status"), ("Opted out", "opted_out"), ("Last contact", lambda r: fmt_dt(r.get("last_contact_at"))), ("Next follow-up", lambda r: fmt_dt(r.get("next_followup_at"))), ("Updated", lambda r: fmt_dt(r.get("updated_at"))),
+            ("Business", "business_name"), ("Person", "contact_person"), ("Phone", "phone_e164"), ("City", "city"), ("Status", "lead_stage"),
+            ("Consent", "consent_status"), ("Last contact", lambda r: fmt_dt(r.get("last_contact_at"))), ("Next follow-up", lambda r: fmt_dt(r.get("next_followup_at"))), ("Actions", lambda r: ""),
         ])
         self.table.setObjectName("contacts_table")
+        self.table.setSortingEnabled(False)  # server-side sort; cell widgets (chips/actions) must stay aligned
         self.table.itemDoubleClicked.connect(lambda *_: self.open_selected())
         self.root.addWidget(self.table, 1)
-        self.empty = EmptyState("No contacts match. Create one with 'New contact' or import a CSV/XLSX under Import / export.")
+        self.empty = EmptyState("No contacts match. Create one with '+ New contact' or import a CSV/XLSX under Import / export.")
         self.root.addWidget(self.empty)
-        pager = QHBoxLayout()
-        self.prev_btn = button("◀ Previous", None, lambda: self.load(self.offset - PAGE))
-        self.next_btn = button("Next ▶", None, lambda: self.load(self.offset + PAGE))
-        self.page_lbl = QLabel("")
-        pager.addWidget(self.prev_btn)
-        pager.addWidget(self.page_lbl)
-        pager.addWidget(self.next_btn)
-        pager.addStretch(1)
-        self.root.addLayout(pager)
         self.offset, self.total = 0, 0
+
+    def set_context(self, query: str | None = None, **_: object) -> None:
+        if query is not None:
+            self.search.setText(query)
+            self.filter_chips["all"].setChecked(True)
 
     def refresh(self) -> None:
         self.load(self.offset)
@@ -136,20 +160,51 @@ class ContactsScreen(BaseScreen):
     def first_page(self) -> None:
         self.load(0)
 
+    def _filter_key(self) -> str:
+        for k, b in self.filter_chips.items():
+            if b.isChecked():
+                return k
+        return "all"
+
     def load(self, offset: int) -> None:
         offset = max(0, offset)
+        f = self._filter_key()
         params = dict(q=self.search.text().strip() or None, lead_stage=self.stage.currentData(), consent_status=self.consent.currentData(), archived=self.archived.isChecked(), sort=self.sort.currentData(), desc=self.desc.isChecked(), limit=PAGE, offset=offset)
-        self.run(lambda: self.api.get("/contacts", **params), lambda page: self._show(page, offset))
+        if f == "not_called":
+            params["lead_stage"] = "new"
+        elif f == "interested":
+            params["lead_stage"] = "interested"
+        elif f == "dnc":
+            params["opted_out"] = True
+        elif f == "followup":
+            params.update(sort="next_followup_at", desc=False, limit=500, offset=0)
+        self.run(lambda: self.api.get("/contacts", **params), lambda page: self._show(page, offset, f))
 
-    def _show(self, page: dict, offset: int) -> None:
-        self.offset, self.total = offset, int(page.get("total", 0))
+    def _show(self, page: dict, offset: int, f: str) -> None:
         rows = page.get("items", [])
+        total = int(page.get("total", 0))
+        if f == "followup":
+            rows = [r for r in rows if r.get("next_followup_at")]
+            total, offset = len(rows), 0
+        self.offset, self.total = offset, total
         self.table.set_rows(rows)
+        for i, r in enumerate(rows):
+            self.table.setCellWidget(i, 4, chip(("opted out" if r.get("opted_out") else r.get("lead_stage", "")).replace("_", " "), "danger" if r.get("opted_out") else STAGE_CHIP.get(r.get("lead_stage", ""), "neutral")))
+            acts = QWidget()
+            al = QHBoxLayout(acts)
+            al.setContentsMargins(4, 0, 4, 0)
+            al.setSpacing(4)
+            al.addWidget(button("Call", "primary", lambda c=r: self.ctx.navigate("call_queue", contact_id=c["id"]), tooltip="Create a call job for this contact"))
+            al.addWidget(button("Open", None, lambda c=r: self.ctx.navigate("contact_detail", contact_id=c["id"])))
+            self.table.setCellWidget(i, 8, acts)
+            self.table.setRowHeight(i, 40)
+        self.table.horizontalHeader().setStretchLastSection(False)
+        self.table.setColumnWidth(8, 150)
         self.empty.setVisible(not rows)
         self.table.setVisible(bool(rows))
         self.page_lbl.setText(f"{offset + 1 if rows else 0}–{offset + len(rows)} of {self.total}")
         self.prev_btn.setEnabled(offset > 0)
-        self.next_btn.setEnabled(offset + PAGE < self.total)
+        self.next_btn.setEnabled(offset + PAGE < self.total and f != "followup")
         self.archive_btn.setText("Unarchive" if self.archived.isChecked() else "Archive")
 
     def _with_selected(self, fn) -> None:
@@ -171,8 +226,7 @@ class ContactsScreen(BaseScreen):
         self._with_selected(go)
 
     def new_contact(self) -> None:
-        dlg = ContactDialog(self)
-        self._run_contact_dialog(dlg)
+        self._run_contact_dialog(ContactDialog(self))
 
     def _run_contact_dialog(self, dlg: ContactDialog, allow_duplicate: bool = False) -> None:
         if dlg.exec() != ContactDialog.DialogCode.Accepted:

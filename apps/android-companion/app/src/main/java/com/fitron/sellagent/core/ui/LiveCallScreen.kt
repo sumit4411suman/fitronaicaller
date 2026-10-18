@@ -40,9 +40,9 @@ import com.fitron.sellagent.core.telecom.SellAgentInCallService
 import java.util.Locale
 import kotlinx.coroutines.delay
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 
 /**
  * Dark live-call screen. Everything shown is observed: timer from InCallService STATE_ACTIVE (or the moment the
@@ -120,13 +120,13 @@ fun LiveCallScreen(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                RoundAction(Icons.Filled.Clear, if (muted) stringResource(R.string.live_unmute) else stringResource(R.string.live_mute), BrandColors.GoldDark, bound) {
+                RoundAction(Icons.Filled.Notifications, if (muted) stringResource(R.string.live_unmute) else stringResource(R.string.live_mute), BrandColors.GoldDark, bound) {
                     SellAgentInCallService.setMutedCompat(!muted)
                 }
-                RoundAction(Icons.Filled.Refresh, if (held) stringResource(R.string.live_unhold) else stringResource(R.string.live_hold), BrandColors.GoldDark, bound) {
+                RoundAction(Icons.Filled.Lock, if (held) stringResource(R.string.live_unhold) else stringResource(R.string.live_hold), BrandColors.GoldDark, bound) {
                     if (SellAgentInCallService.holdActive(!held)) held = !held
                 }
-                RoundAction(Icons.Filled.MoreVert, stringResource(R.string.live_keypad), BrandColors.GoldDark, bound) { keypad = !keypad }
+                RoundAction(Icons.Filled.Menu, stringResource(R.string.live_keypad), BrandColors.GoldDark, bound) { keypad = !keypad }
             }
             if (!bound) MutedText(stringResource(R.string.live_controls_disabled))
             if (keypad && bound) {

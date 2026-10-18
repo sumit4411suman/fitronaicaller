@@ -93,14 +93,34 @@ def test_campaign_start_engine_and_progress(client):
     camp = client.post("/api/v1/campaigns", json={"name": "Bokaro gyms", "auto_followup": True, "followup_after_days": 3}).json()
     client.post(f"/api/v1/campaigns/{camp['id']}/contacts", json={"ids": [a["id"], b["id"]]})
     r = client.post(f"/api/v1/campaigns/{camp['id']}/start").json()
+    # whatever order the members come back in, the ineligible one is excluded and the eligible one gets a job
     assert r["campaign"]["status"] == "active" and r["engine"]["created"] == 1
     jobs = client.get("/api/v1/call-jobs", params={"status": "pending"}).json()["items"]
     assert [j["contact_id"] for j in jobs] == [a["id"]]
-    r2 = client.post("/api/v1/system/workers/campaign_engine/run").json()["result"]
-    assert r2["excluded"] == 1  # no consent -> excluded, never dialled
+    client.post("/api/v1/system/workers/campaign_engine/run")
+    members = {m["contact"]["id"]: m["membership"]["status"] for m in client.get(f"/api/v1/campaigns/{camp['id']}/contacts").json()}
+    assert members[b["id"]] == "excluded"  # no consent -> excluded, never dialled
     stats = client.get(f"/api/v1/campaigns/{camp['id']}/stats").json()
     assert stats["excluded"] == 1 and "progress_percent" in stats
     assert client.post(f"/api/v1/campaigns/{camp['id']}/pause").json()["status"] == "paused"
+
+
+def test_campaign_engine_ineligible_first_member_does_not_block(client):
+    """Regression (Windows CI): an excluded member must not consume the engine's tick."""
+    open_hours(client)
+    bad = make_contact(client, business_name="Suppressed Gym", phone="9123456780")
+    client.post(f"/api/v1/contacts/{bad['id']}/opt-out", json={"reason": "no"})
+    good = make_contact(client)
+    camp = client.post("/api/v1/campaigns", json={"name": "Order test"}).json()
+    client.post(f"/api/v1/campaigns/{camp['id']}/contacts", json={"ids": [bad["id"], good["id"]]})
+    from sellagent_backend.db.models import CampaignContact
+    from sqlalchemy import update
+
+    with client.app.state.session_factory() as s:  # force the opted-out member to be first and still 'pending'
+        s.execute(update(CampaignContact).where(CampaignContact.contact_id == bad["id"]).values(status="pending", created_at=datetime(2020, 1, 1, tzinfo=UTC)))
+        s.commit()
+    r = client.post(f"/api/v1/campaigns/{camp['id']}/start").json()
+    assert r["engine"]["created"] == 1 and r["engine"]["excluded"] == 1
 
 
 def test_followup_scheduler_reminds_creates_jobs_and_auto_followups(client):

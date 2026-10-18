@@ -24,6 +24,7 @@
     <string name="runner_mark_fail">फेल</string>
     <string name="runner_mark_blocked">अवरुद्ध</string>
     <string name="runner_mark_not_tested">परीक्षण नहीं</string>
+    <string name="runner_open_step">चरण खोलें</string>
     <string name="runner_sent">भेजा गया</string>
     <string name="runner_queued">कतार में</string>
     <string name="runner_busy">माप रहा है…</string>

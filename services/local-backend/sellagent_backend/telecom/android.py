@@ -14,15 +14,32 @@ from sellagent_backend.db.models import AudioTest, PairedDevice
 from sellagent_backend.telecom.base import RouteCapabilities
 from sellagent_backend.ws.hub import Hub
 
+INBOUND_STEP = "remote_speech_capture"
+OUTBOUND_STEP = "generated_speech_transmission"
+
+
+def remote_capture_proven(row: AudioTest) -> bool:
+    """True only if the phone's own probe reported that a call-audio source really opened.
+
+    A normal Android app is not expected to get remote (downlink) call audio, so an operator tap alone is not
+    enough to prove it. The diagnostic app records the probe result as evidence["remote_capture_possible"].
+    """
+    return str((row.evidence or {}).get("remote_capture_possible", "")).strip().lower() == "true"
+
 
 def audio_gate_status(session: Session, device_id: str | None = None) -> dict:
-    """Both directions must have an operator-confirmed real-device PASS for the gate to open."""
+    """Both directions must have an operator-confirmed real-device PASS for the gate to open.
+
+    Only the dedicated steps count: step 4 (remote speech capture, with probe evidence) for inbound and
+    step 5 (generated speech transmission) for outbound. "Both"-direction steps such as the Hindi/English
+    phrases are quality checks and never open the gate on their own.
+    """
     q = select(AudioTest).where(AudioTest.kind == "real_device", AudioTest.operator_confirmed.is_(True), AudioTest.status == "pass")
     if device_id:
         q = q.where(AudioTest.device_id == device_id)
     rows = list(session.scalars(q))
-    inbound = [r for r in rows if r.direction in ("inbound", "both")]
-    outbound = [r for r in rows if r.direction in ("outbound", "both")]
+    inbound = [r for r in rows if r.step == INBOUND_STEP and remote_capture_proven(r)]
+    outbound = [r for r in rows if r.step == OUTBOUND_STEP]
     return {
         "remote_audio_capture_verified": bool(inbound), "audio_injection_verified": bool(outbound),
         "allowed": bool(inbound) and bool(outbound),

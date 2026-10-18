@@ -9,10 +9,11 @@ from sqlalchemy.orm import Session
 
 from sellagent_backend.api.deps import get_db, require_area
 from sellagent_backend.api.schemas import AudioTestIn, AudioTestOut, Ok
-from sellagent_backend.api.v1.errors import not_found
+from sellagent_backend.api.v1.errors import conflict, not_found
 from sellagent_backend.db.models import AudioTest
 from sellagent_backend.services import audit, settings_service
 from sellagent_backend.telecom import audio_gate_status
+from sellagent_backend.telecom.android import INBOUND_STEP, remote_capture_proven
 
 router = APIRouter(prefix="/audio-tests", tags=["audio-tests"], dependencies=[Depends(require_area("audio_tests"))])
 
@@ -36,6 +37,16 @@ TEST_PLAN = [
 ]
 
 
+def _check_confirmable(row: AudioTest) -> None:
+    if row.step == INBOUND_STEP and row.status == "pass" and not remote_capture_proven(row):
+        raise conflict(
+            "Remote speech capture cannot be confirmed as PASS: the phone's probe did not report that a call-audio "
+            "source opened (remote_capture_possible is not true). A normal Android app is not expected to hear the "
+            "other party; mark this step Blocked on the phone.",
+            code="remote_capture_unproven",
+        )
+
+
 @router.get("/plan")
 def plan() -> dict:
     return {"steps": TEST_PLAN, "rule": "A step is PASS only when observed on the real Galaxy S25 + Jio SIM and confirmed by the operator. Simulated/emulator results never count."}
@@ -52,6 +63,8 @@ def list_tests(db: Session = Depends(get_db), test_id: str | None = None) -> lis
 @router.post("", response_model=AudioTestOut, status_code=201)
 def record(body: AudioTestIn, db: Session = Depends(get_db)) -> AudioTest:
     row = AudioTest(**body.model_dump())
+    if row.operator_confirmed:
+        _check_confirmable(row)
     db.add(row)
     db.flush()
     audit.record(db, "audio_test.record", entity_type="audio_test", entity_id=row.id, severity="warning" if body.status == "pass" and body.kind == "real_device" else "info", data={"step": body.step, "status": body.status, "kind": body.kind})
@@ -63,6 +76,8 @@ def confirm(row_id: str, db: Session = Depends(get_db), confirmed: bool = True) 
     row = db.get(AudioTest, row_id)
     if row is None:
         raise not_found("audio test not found")
+    if confirmed:
+        _check_confirmable(row)
     row.operator_confirmed = confirmed
     audit.record(db, "audio_test.confirm", entity_type="audio_test", entity_id=row.id, severity="warning", data={"confirmed": confirmed, "step": row.step, "status": row.status, "kind": row.kind})
     gate = audio_gate_status(db)

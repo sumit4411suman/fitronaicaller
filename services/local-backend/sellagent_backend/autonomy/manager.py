@@ -44,7 +44,9 @@ def default_components(app_settings: Any) -> Components:
         ok, msg = tts.available()
         if not ok:
             raise AutonomyError(msg, "tts_unavailable")
-        return stt, tts, {"en": settings_service.get(s, "ai.piper_voice_en"), "hi": settings_service.get(s, "ai.piper_voice_hi")}
+        from sellagent_backend.services import persona_service
+
+        return stt, tts, persona_service.voices(s)
 
     return build
 
@@ -102,8 +104,11 @@ class AutonomyManager:
                 except NoVerifiedPath as exc:
                     raise AutonomyError(str(exc), "no_verified_audio_path") from exc
                 stt, tts, voices = self.components(s)
-                speed = max(50, min(200, int(settings_service.get(s, "ai.tts_speed_percent")))) / 100
-                cfg = AutonomyConfig(speed=speed)
+                from sellagent_backend.services import persona_service
+
+                opts = persona_service.tts_options(s)
+                cfg = AutonomyConfig(speed=opts["speed"], volume=opts["volume"], pause_ms=opts["pause_ms"], barge_in=bool(settings_service.get(s, "persona.barge_in")),
+                                     handoff=settings_service.get(s, "persona.handoff"), gender=settings_service.get(s, "persona.gender"))
             assert path is not None
             session = AutonomousSession(call_id=call_id, sf=self.sf, path=path, engine=self.engine_factory(use_llm=use_llm), stt=stt, tts=tts, voices=voices, language=language, config=cfg, on_event=self._emit_sync, sleep=self.sleep)
             self.active = session

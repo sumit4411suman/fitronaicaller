@@ -68,6 +68,8 @@ shows that AI telephone calling is unavailable.
 | Android companion (pairing, call control, state, routing, emergency stop) | Yes | CI build; pairing and call states observed by operator | Formal confirmation rows |
 | Local voice pipeline: VAD (Silero v6 or energy) -> faster-whisper -> conversation engine -> Piper, with stage timings, cancellation, barge-in detection, audio validation | Yes (`sellagent_speech/pipeline.py`, `POST /speech/pipeline-test`) | Unit and API tests with fake models; real Silero model tested | Real Whisper/Piper runs on the Windows PC (`tests/voice`, opt-in); no measured WER/latency yet |
 | Hindi / English voice suite | Yes (`tests/voice`) | Skips without models | Run on the PC with models and consenting recordings |
+| Autonomous conversation loop (`sellagent_backend/autonomy`): barge-in, language following, silence and poor-recognition fallback, opt-out, emergency stop | Yes, but it runs only on a verified digital call-audio path; real routes return none | Simulated path tests | Needs a verified path, which does not exist for Android/Jio |
+| AI sales persona (female "Priya", Hindi feminine forms, cue-aware replies, call memory, voice pacing) | Yes (`docs/PERSONA.md`) | Unit, API and UI tests in script mode | Voice naturalness and latency on the real PC; LLM-mode quality |
 | Conversation engine, guardrails, opt-out, consent, eligibility, CRM, campaigns, reports | Yes | Automated tests (see TEST_REPORT.md) | Human-assisted use only |
 | Secure Windows-Android link (pairing code + TLS fingerprint pinning, authenticated WebSocket) | Yes | Automated tests; real pairing observed on the S25 | n/a |
 

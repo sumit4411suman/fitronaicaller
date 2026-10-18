@@ -14,6 +14,7 @@ from sellagent_ai.conversation import scripts
 from sellagent_ai.conversation.states import ConversationContext, ConversationStateMachine, State
 from sellagent_ai.guardrails import GuardrailResult, check_reply
 from sellagent_ai.llm.base import CancelToken, ChatMessage, LLMProvider, ProviderUnavailable, collect
+from sellagent_ai.persona import ConversationMemory, Persona, infer_cues
 
 
 @dataclass
@@ -36,6 +37,7 @@ class Turn:
     outcome: str | None = None
     followup_requested: bool = False
     llm_metrics: dict[str, Any] | None = None
+    cues: list[str] = field(default_factory=list)  # inferred from the caller's words; never treated as facts
 
 
 SYSTEM_PROMPT = (
@@ -88,13 +90,24 @@ class ConversationEngine:
                 return txt, [f.ref]
         return (scripts.UNKNOWN_INFO[lang], [])
 
-    def _llm_rephrase(self, state: State, base_text: str, utterance: str, facts: list[KnowledgeFact], lang: str, cancel: CancelToken | None) -> tuple[str | None, dict[str, Any] | None]:
+    def _llm_rephrase(
+        self, state: State, base_text: str, utterance: str, facts: list[KnowledgeFact], lang: str, cancel: CancelToken | None,
+        persona: Persona | None = None, memory: ConversationMemory | None = None, cues: set[str] | None = None,
+    ) -> tuple[str | None, dict[str, Any] | None]:
         if not self.use_llm or self.provider is None:
             return None, None
         fact_block = "\n".join(f"- [{f.ref}] {f.title}: {f.text}" for f in facts) or "- (none)"
+        system = SYSTEM_PROMPT.format(lang_name="Hindi (Devanagari script)" if lang == "hi" else "English", facts=fact_block)
+        if persona is not None:
+            system = persona.llm_style(lang) + ("" if persona.gender != "female" or lang != "hi" else " Use feminine first-person verb forms in Hindi.") + "\n\n" + system
+        context = ""
+        if memory is not None and memory.turns:
+            context = f"Conversation so far (this call only):\n{memory.history_block(persona.memory_turns if persona else 8)}\nKnown so far: {memory.summary()}.\n"
+        if cues:
+            context += f"Possible cues from their words (inferred, may be wrong): {', '.join(sorted(cues))}.\n"
         msgs = [
-            ChatMessage("system", SYSTEM_PROMPT.format(lang_name="Hindi (Devanagari script)" if lang == "hi" else "English", facts=fact_block)),
-            ChatMessage("user", f"Conversation state: {state.value}. Prospect said: {utterance!r}. Approved script line to adapt: {base_text!r}. Reply now."),
+            ChatMessage("system", system),
+            ChatMessage("user", f"{context}Conversation state: {state.value}. Prospect said: {utterance!r}. Approved script line to adapt: {base_text!r}. Reply now."),
         ]
         try:
             res = collect(self.provider, msgs, model=self.model, cancel=cancel, temperature=0.2, max_tokens=120, timeout=20.0)
@@ -109,6 +122,7 @@ class ConversationEngine:
     def respond(
         self, sm: ConversationStateMachine, utterance: str | None, *, facts: list[KnowledgeFact], ctx: ConversationContext,
         preferred_language: str = "auto", contact_person: str = "", business_name: str = "", cancel: CancelToken | None = None,
+        persona: Persona | None = None, memory: ConversationMemory | None = None,
     ) -> Turn:
         detected = language.detect(utterance or "")
         lang = language.resolve(preferred_language, detected)
@@ -126,11 +140,47 @@ class ConversationEngine:
             sm.transition(State.OPTED_OUT, reason="prospect requested no further calls", ctx=ctx)
             return Turn(sm.state, scripts.line(State.OPTED_OUT, lang), lang, outcome="opted_out")
 
-        # --- state progression
+        cues = infer_cues(utterance or "") if (persona is not None and utterance) else set()
+        gender = persona.gender if persona is not None else "male"
         s = sm.state
+
+        # --- persona: respond to what the caller actually said (wording only; safety rules above already applied)
+        if persona is not None and sm.is_live and s != State.CONNECTED:
+            early = s in (State.GREETING, State.PERMISSION_TO_CONTINUE, State.NEEDS_DISCOVERY, State.PRODUCT_EXPLANATION, State.OBJECTION_HANDLING)
+            if intent == "human":
+                pass  # handled by the normal flow below
+            elif "end_call" in cues and intent != "demo":  # "ok thank you, bye" is a goodbye, not agreement
+                sm.transition(State.COMPLETED, reason="prospect ended the conversation", ctx=ctx)
+                closing = (persona.closing_hi if lang == "hi" else persona.closing_en) or scripts.CUE_LINES["end_call"][lang]
+                return self._finish(sm, closing, lang, refs, "callback_requested" if "interest" in (memory.cues_seen if memory else []) else "not_interested", False, facts, ctx, gender, cues, utterance, persona, memory, cancel)
+            elif "busy" in cues and early:
+                sm.transition(State.FOLLOWUP_SCHEDULING, reason="prospect is busy", ctx=ctx)
+                return self._finish(sm, scripts.CUE_LINES["busy"][lang], lang, refs, "callback_requested", True, facts, ctx, gender, cues, utterance, persona, memory, cancel)
+            elif cues & {"confused", "clarification"} and s in scripts.SIMPLER:
+                # stay in the same state and say it more simply
+                return self._finish(sm, scripts.SIMPLER[s][lang], lang, refs, None, False, facts, ctx, gender, cues, utterance, persona, memory, cancel)
+            elif "existing_software" in cues and s in (State.NEEDS_DISCOVERY, State.PRODUCT_EXPLANATION) and not (memory and ("improve" in memory.last_agent.lower() or "बेहतर" in memory.last_agent)):
+                if s == State.PRODUCT_EXPLANATION:
+                    sm.transition(State.NEEDS_DISCOVERY, reason="prospect already uses software", ctx=ctx)
+                generic = "your current system" if lang == "en" else "मौजूदा तरीके"
+                line = scripts.CUE_LINES["existing_software"][lang].format(tool=memory.current_tool if memory and memory.current_tool else generic)
+                if not check_reply(line, approved_facts=[f.structured for f in facts], state=sm.state.value).allowed:
+                    # e.g. naming Tally could imply an integration claim: the guardrails win, use neutral wording
+                    line = scripts.CUE_LINES["existing_software"][lang].format(tool=generic)
+                return self._finish(sm, line, lang, refs, None, False, facts, ctx, gender, cues, utterance, persona, memory, cancel)
+
+        # --- state progression
         if s == State.CONNECTED:
             sm.transition(State.GREETING, reason="call connected", ctx=ctx)
             text = scripts.line(State.GREETING, lang, contact_person=contact_person or ("there" if lang == "en" else ""), business_name=business_name)
+            if persona is not None:
+                custom = persona.greeting(lang, contact_person=contact_person, business_name=business_name)
+                if custom:
+                    text = custom
+                elif lang == "en":
+                    text = text.replace("this is an automated AI assistant", f"I'm {persona.name}, an automated AI assistant")
+                else:
+                    text = text.replace("मैं FITRON", f"मैं {persona.name}, FITRON", 1)
         elif s == State.GREETING:
             sm.transition(State.PERMISSION_TO_CONTINUE, reason="greeting delivered", ctx=ctx)
             text = scripts.line(State.PERMISSION_TO_CONTINUE, lang)
@@ -198,9 +248,22 @@ class ConversationEngine:
         else:
             raise RuntimeError(f"respond() called in non-live state {s}")
 
+        if persona is not None:
+            if memory is not None and memory.last_agent.endswith(text) and sm.state in scripts.ALTERNATIVES:
+                text = scripts.ALTERNATIVES[sm.state][lang][0]  # do not repeat the previous line word for word
+            ack = next((scripts.ACKS[c][lang] for c in ("interest", "hesitation", "impatient") if c in cues), "")
+            if ack and not text.startswith(ack):
+                text = f"{ack} {text}"
+        return self._finish(sm, text, lang, refs, outcome, followup, facts, ctx, gender, cues, utterance, persona, memory, cancel)
+
+    def _finish(
+        self, sm: ConversationStateMachine, text: str, lang: str, refs: list[str], outcome: str | None, followup: bool, facts: list[KnowledgeFact],
+        ctx: ConversationContext, gender: str, cues: set[str], utterance: str | None, persona: Persona | None, memory: ConversationMemory | None, cancel: CancelToken | None,
+    ) -> Turn:
+        text = scripts.gendered(text, lang, gender)
         # --- optional LLM rephrase, always guard-railed
         source, gr, metrics = "script", None, None
-        candidate, metrics = self._llm_rephrase(sm.state, text, utterance or "", facts, lang, cancel)
+        candidate, metrics = self._llm_rephrase(sm.state, text, utterance or "", facts, lang, cancel, persona=persona, memory=memory, cues=cues)
         approved_structs = [f.structured for f in facts]
         if candidate:
             gr = check_reply(candidate, approved_facts=approved_structs, state=sm.state.value, require_disclosure=self.require_disclosure, prospect_opted_out=ctx.opted_out)
@@ -210,7 +273,8 @@ class ConversationEngine:
         if not final_gr.allowed:
             # Script lines are vetted, but if a knowledge fact text itself violates, fall back to UNKNOWN_INFO.
             text, refs, final_gr = scripts.UNKNOWN_INFO[lang], [], check_reply(scripts.UNKNOWN_INFO[lang], approved_facts=approved_structs, state="fallback")
-        return Turn(sm.state, text, lang, knowledge_refs=refs, source=source, guardrail=gr or final_gr, outcome=outcome, followup_requested=followup, llm_metrics=metrics)
+            text = scripts.gendered(text, lang, gender)
+        return Turn(sm.state, text, lang, knowledge_refs=refs, source=source, guardrail=gr or final_gr, outcome=outcome, followup_requested=followup, llm_metrics=metrics, cues=sorted(cues))
 
 
 OUTCOMES = ("converted", "demo_scheduled", "interested", "callback_requested", "human_handoff", "not_interested", "opted_out", "no_answer", "busy", "wrong_number", "technical_failure", "cancelled")

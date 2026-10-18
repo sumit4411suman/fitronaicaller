@@ -45,6 +45,25 @@ DEFAULTS: dict[str, Any] = {
     "ai.language": "auto",
     "ai.vad_engine": "auto",
     "ai.tts_speed_percent": 100,
+    "persona.enabled": True,
+    "persona.name": "Priya",
+    "persona.gender": "female",
+    "persona.style": "warm",
+    "persona.response_length": "short",
+    "persona.language_switching": True,
+    "persona.default_language": "auto",
+    "persona.greeting_en": "",
+    "persona.greeting_hi": "",
+    "persona.closing_en": "",
+    "persona.closing_hi": "",
+    "persona.objectives": "Understand how the gym manages members and payments; explain approved FITRON facts; offer a demo or a human follow-up.",
+    "persona.memory_turns": 8,
+    "persona.voice_en": "",
+    "persona.voice_hi": "",
+    "persona.pause_ms": 250,
+    "persona.volume_percent": 100,
+    "persona.barge_in": True,
+    "persona.handoff": "callback",
     "ai.piper_executable": "",
     "privacy.allow_live_transcription": False,
     "workers.campaign_engine_enabled": True,
@@ -125,6 +144,20 @@ def set_value(session: Session, key: str, value: Any, *, actor: str = "operator"
         )
     if key == "calling.default_mode" and value not in {"human_assisted", "autonomous"}:
         raise SettingsError("calling.default_mode must be human_assisted or autonomous")
+    choices = {"persona.gender": {"female", "male"}, "persona.style": {"warm", "concise", "formal"}, "persona.response_length": {"short", "normal"},
+               "persona.default_language": {"auto", "hi", "en"}, "persona.handoff": {"callback", "operator"}}
+    if key in choices and value not in choices[key]:
+        raise SettingsError(f"{key} must be one of {', '.join(sorted(choices[key]))}")
+    if key == "persona.name" and not (1 <= len(value.strip()) <= 40):
+        raise SettingsError("persona.name must be 1-40 characters")
+    if key in ("persona.greeting_en", "persona.greeting_hi", "persona.closing_en", "persona.closing_hi", "persona.objectives") and len(value) > 500:
+        raise SettingsError(f"{key} is limited to 500 characters")
+    if key == "persona.memory_turns" and not 2 <= value <= 30:
+        raise SettingsError("persona.memory_turns must be between 2 and 30")
+    if key == "persona.pause_ms" and value > 1500:
+        raise SettingsError("persona.pause_ms must be at most 1500")
+    if key == "persona.volume_percent" and not 20 <= value <= 150:
+        raise SettingsError("persona.volume_percent must be between 20 and 150")
     if key == "ai.tts_speed_percent" and not 50 <= value <= 200:
         raise SettingsError("ai.tts_speed_percent must be between 50 and 200")
     if key == "ai.vad_engine" and value not in {"auto", "silero", "energy"}:

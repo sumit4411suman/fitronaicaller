@@ -11,7 +11,7 @@ KEY_WIDGETS = {
     "setup": ["grid"], "models": ["catalog_table", "ack", "pull_btn"], "dashboard": ["chart", "cards", "donut", "ai_rows", "recent", "device_grid"], "contacts": ["table", "search", "new_btn", "filter_chips"],
     "contact_detail": ["tabs", "empty", "avatar", "stage_combo", "msg_btn"], "import_export": ["map_table", "dup_policy", "commit_btn"], "campaigns": ["table", "detail"], "eligibility": ["contact", "banner"],
     "call_queue": ["table", "routes_box"], "live_call": ["picker", "state_lbl", "agent_line", "utterance", "mute_btn", "mode_chip"], "call_history": ["table", "outcome"], "diagnostics": ["tabs", "sim_log", "tts_text"],
-    "knowledge": ["table", "query", "approve_btn"], "scripts": ["table", "editors"], "followups": ["tree", "views", "day_list"], "analytics": ["chart", "campaign", "reports_table", "gen_btn"], "devices": ["code_lbl", "lan_toggle", "table"],
+    "knowledge": ["table", "query", "approve_btn"], "persona": ["editors", "save_btn", "preview_btn", "sim_log"], "scripts": ["table", "editors"], "followups": ["tree", "views", "day_list"], "analytics": ["chart", "campaign", "reports_table", "gen_btn"], "devices": ["code_lbl", "lan_toggle", "table"],
     "audio_tests": ["table", "gate_lbl", "history"], "suppression": ["table", "check_edit"], "settings": ["editors", "save_btn"], "backup": ["table"], "logs": ["health", "log_view", "audit"], "profile": ["name_lbl", "operator"], "users": ["table", "matrix", "new_btn"], "workers": ["table", "ai_grid", "run_btn"],
 }
 
@@ -19,7 +19,7 @@ KEY_WIDGETS = {
 def test_all_screens_registered_and_reachable(window):
     from sellagent_desktop.screens import NAV_GROUPS, SCREEN_SPECS
 
-    assert len(SCREEN_SPECS) == 25  # 22 required screens + Profile, Users & Roles, Workers
+    assert len(SCREEN_SPECS) == 26  # 22 required screens + Profile, Users & Roles, Workers, AI sales persona
     assert [label for _, label, _ in NAV_GROUPS] == ["Dashboard", "Contacts", "Campaigns", "Call Console", "Follow-ups", "Reports", "Knowledge Base", "AI Settings", "Devices", "System Status", "Settings"]
     grouped = [k for _, _, keys in NAV_GROUPS for k in keys]
     assert sorted(grouped) == sorted(k for k, *_ in SCREEN_SPECS)

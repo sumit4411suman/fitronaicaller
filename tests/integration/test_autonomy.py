@@ -81,7 +81,7 @@ class FakeTTS:
     def __init__(self) -> None:
         self.lines: list[tuple[str, str, float]] = []
 
-    def synthesize(self, text, voice, speed=1.0):  # type: ignore[no-untyped-def]
+    def synthesize(self, text, voice, speed=1.0, **_kw):  # type: ignore[no-untyped-def]
         self.lines.append((text, voice, speed))
         return SimpleNamespace(audio=np.zeros(int(22050 * 1.5), dtype=np.float32), sample_rate=22050)
 

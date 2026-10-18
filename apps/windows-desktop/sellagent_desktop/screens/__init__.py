@@ -22,6 +22,7 @@ SCREEN_SPECS: list[tuple[str, str, str, str]] = [
     ("diagnostics", "Speech & AI diagnostics", "diagnostics", "DiagnosticsScreen"),
     ("knowledge", "Knowledge Base", "knowledge", "KnowledgeScreen"),
     ("scripts", "Sales script editor", "script_editor", "ScriptEditorScreen"),
+    ("persona", "AI sales persona", "persona", "PersonaScreen"),
     ("followups", "Follow-ups", "followups", "FollowupsScreen"),
     ("analytics", "Reports", "analytics", "AnalyticsScreen"),
     ("devices", "Pairing", "devices", "DevicesScreen"),
@@ -38,7 +39,7 @@ SCREEN_SPECS: list[tuple[str, str, str, str]] = [
 # backend permission area per screen (GET needs '<area>:read', changes need '<area>:write')
 SCREEN_AREAS: dict[str, str] = {
     "setup": "settings", "models": "ai", "dashboard": "reports", "contacts": "contacts", "contact_detail": "contacts", "import_export": "contacts",
-    "campaigns": "campaigns", "eligibility": "contacts", "call_queue": "calls", "live_call": "calls", "call_history": "calls", "diagnostics": "ai",
+    "campaigns": "campaigns", "eligibility": "contacts", "call_queue": "calls", "live_call": "calls", "call_history": "calls", "diagnostics": "ai", "persona": "settings",
     "knowledge": "knowledge", "scripts": "knowledge", "followups": "followups", "analytics": "reports", "devices": "devices", "audio_tests": "audio_tests",
     "suppression": "suppression", "settings": "settings", "backup": "backup", "logs": "health", "profile": "settings", "users": "users", "workers": "system",
 }
@@ -52,7 +53,7 @@ NAV_GROUPS: list[tuple[str, str, list[str]]] = [
     ("followups", "Follow-ups", ["followups"]),
     ("reports", "Reports", ["analytics"]),
     ("knowledge", "Knowledge Base", ["knowledge"]),
-    ("ai", "AI Settings", ["models", "diagnostics", "scripts"]),
+    ("ai", "AI Settings", ["models", "persona", "diagnostics", "scripts"]),
     ("devices", "Devices", ["devices", "audio_tests"]),
     ("system", "System Status", ["logs", "workers", "backup"]),
     ("settings", "Settings", ["settings", "users", "suppression", "import_export", "setup", "profile"]),

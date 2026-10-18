@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
-from sellagent_ai.conversation import ConversationEngine
+from sellagent_ai.conversation import ConversationEngine, scripts
 from sellagent_speech.audio_io import resample
 from sellagent_speech.pipeline import BargeInMonitor
 from sellagent_speech.vad import EnergyVAD, VadConfig
@@ -49,6 +49,11 @@ class AutonomyConfig:
     max_silences: int = 2
     max_unrecognised: int = 2
     speed: float = 1.0
+    volume: float = 1.0
+    pause_ms: int = 0
+    barge_in: bool = True
+    handoff: str = "callback"  # callback: AI arranges a call back | operator: hand the live call to the operator now
+    gender: str = "female"
 
 
 @dataclass
@@ -124,7 +129,8 @@ class AutonomousSession:
         voice = self.voices.get(lang) or self.voices.get("en")
         if not voice:
             raise RuntimeError(f"no TTS voice configured for {lang!r}")
-        out = self.tts.synthesize(text, voice, speed=self.config.speed)
+        text = scripts.gendered(text, lang, self.config.gender)
+        out = self.tts.synthesize(text, voice, speed=self.config.speed, volume=self.config.volume, pause_ms=self.config.pause_ms)
         audio = resample(np.asarray(out.audio, dtype=np.float32), out.sample_rate, self.path.sample_rate)
         step = int(self.path.sample_rate * CHUNK_S)
         barge = BargeInMonitor(VadConfig(sample_rate=self.path.sample_rate, min_speech_ms=150, hangover_ms=300))
@@ -135,7 +141,7 @@ class AutonomousSession:
                 return False
             self.path.write(audio[i : i + step])
             incoming = self.path.read()
-            if len(incoming):
+            if len(incoming) and self.config.barge_in:
                 heard.append(incoming)
                 if barge.feed(incoming):
                     self.interruptions += 1
@@ -250,6 +256,11 @@ class AutonomousSession:
             self.turns += 1
             lang = res["language"] if res["language"] in ("hi", "en") else lang
             self.languages.append(lang)
+            if res["state"] == "human_handoff" and self.config.handoff == "operator":
+                self.speak("Sure, connecting you with my colleague now." if lang == "en" else "ज़रूर, मैं अभी आपको अपने सहयोगी से जोड़ती हूँ।", lang)
+                self.status, self.reason = "fallback", "prospect asked for a person: operator takes over the live call"
+                self._event("autonomy.handoff", reason=self.reason)
+                return
             self.speak(res["agent_text"], lang)  # an interruption just moves on to listening
             if res["terminal"]:
                 self.status, self.outcome = "finished", res["outcome"]

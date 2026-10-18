@@ -61,6 +61,13 @@ def run_step(
     sm = load_state_machine(c)
     if not sm.is_live:
         raise ConversationStepError(f"call is not live (state {sm.state})", "not_live")
+    from sellagent_backend.services import persona_service
+
+    persona = persona_service.load_persona(db)
+    memory = persona_service.call_memory(db, c.id, persona.memory_turns) if persona is not None else None
+    language = persona_service.effective_language(db, language, persona)
+    if memory is not None and utterance:
+        memory.observe("prospect", utterance)  # the current reply is part of the context the persona responds to
     ctx = ConversationContext(consent_ok=contact.consent_status == "granted", emergency_stop=bool(settings_service.get(db, "calling.emergency_stop_active")), opted_out=contact.opted_out, authorized=True)
     seq = next_seq(db, c.id)
     turn_sentiment = None
@@ -72,7 +79,7 @@ def run_step(
         seq += 1
     facts = facts_for(db, utterance or "")
     try:
-        turn = engine.respond(sm, utterance, facts=facts, ctx=ctx, preferred_language=language if language != "auto" else settings_service.get(db, "ai.language"), contact_person=contact.contact_person or "", business_name=contact.business_name)
+        turn = engine.respond(sm, utterance, facts=facts, ctx=ctx, preferred_language=language if language != "auto" else settings_service.get(db, "ai.language"), contact_person=contact.contact_person or "", business_name=contact.business_name, persona=persona, memory=memory)
     except InvalidTransition as exc:
         raise ConversationStepError(str(exc), "invalid_transition") from exc
     prev = c.conversation_state
@@ -94,4 +101,5 @@ def run_step(
 
         labels = list(db.scalars(select(Transcript.sentiment).where(Transcript.call_id == c.id, Transcript.speaker == "prospect")))
         c.sentiment = overall([*labels, turn_sentiment.label])
-    return {"sentiment": turn_sentiment.label if turn_sentiment else None, "call_sentiment": c.sentiment, "state": sm.state.value, "agent_text": turn.agent_text, "language": turn.language, "knowledge_refs": turn.knowledge_refs, "source": turn.source, "guardrail": turn.guardrail.to_dict() if turn.guardrail else None, "followup_requested": turn.followup_requested, "outcome": turn.outcome, "terminal": sm.is_terminal, "llm": turn.llm_metrics}
+    return {"sentiment": turn_sentiment.label if turn_sentiment else None, "call_sentiment": c.sentiment, "state": sm.state.value, "agent_text": turn.agent_text, "language": turn.language, "knowledge_refs": turn.knowledge_refs, "source": turn.source, "guardrail": turn.guardrail.to_dict() if turn.guardrail else None, "followup_requested": turn.followup_requested, "outcome": turn.outcome, "terminal": sm.is_terminal, "llm": turn.llm_metrics,
+            "cues": turn.cues, "persona": persona.name if persona is not None else None, "memory": memory.summary() if memory is not None else None}

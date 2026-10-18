@@ -454,3 +454,28 @@ def test_users_roles_switch_user_and_permissions(window, backend, qapp, monkeypa
     assert window.screens["contacts"].new_btn.isEnabled()
     assert settings_tabs.isTabVisible(settings_tabs.indexOf(window.screens["users"]))
 
+
+
+def test_persona_screen_save_and_rehearse(window, backend, qapp):
+    window.navigate("persona")
+    wait_idle()
+    p = window.screens["persona"]
+    assert p.editors["persona.name"].text() == "Priya" and p.editors["persona.enabled"].isChecked()
+    p.editors["persona.name"].setText("Ananya")
+    p.save()
+    wait_idle()
+    with backend.client() as c:
+        assert c.get("/api/v1/settings").json()["values"]["persona.name"] == "Ananya"
+    p.sim_restart()
+    p.sim_send()  # empty first message: the AI greets
+    wait_idle()
+    assert _wait_until(qapp, lambda: any("Ananya" in p.sim_log.item(i).text() for i in range(p.sim_log.count())), 15)
+    p.sim_input.setText("yes")
+    p.sim_send()
+    wait_idle()
+    p.sim_input.setText("abhi busy hoon, baad mein")
+    p.sim_send()
+    wait_idle()
+    assert _wait_until(qapp, lambda: any("busy" in p.sim_log.item(i).text() for i in range(p.sim_log.count()) if "cues" in p.sim_log.item(i).text()), 15)
+    with backend.client() as c:
+        c.patch("/api/v1/settings", json={"values": {"persona.name": "Priya"}})

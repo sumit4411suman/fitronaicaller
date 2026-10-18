@@ -67,13 +67,16 @@ class PiperTTS:
         self._voices[name] = v
         return v
 
-    def synthesize(self, text: str, voice: str, speed: float = 1.0) -> TTSResult:
-        """``speed`` 0.5-2.0 (1.0 = the voice's natural pace); mapped to Piper's length_scale = 1 / speed."""
+    def synthesize(self, text: str, voice: str, speed: float = 1.0, *, volume: float = 1.0, pause_ms: int = 0) -> TTSResult:
+        """``speed`` 0.5-2.0 (1.0 = natural pace, Piper length_scale = 1 / speed); ``volume`` 0.2-1.5 gain;
+        ``pause_ms`` silence inserted after each sentence for natural pacing."""
         if not text.strip():
             raise ValueError("text is empty")
         speed = min(2.0, max(0.5, float(speed)))
+        volume = min(1.5, max(0.2, float(volume)))
+        pause_ms = max(0, min(1500, int(pause_ms)))
         if self.executable:
-            return self._synthesize_subprocess(text, voice, speed)
+            return self._synthesize_subprocess(text, voice, speed, volume, pause_ms)
         v = self._voice(voice)
         t0 = time.perf_counter()
         chunks: list[np.ndarray] = []
@@ -81,7 +84,7 @@ class PiperTTS:
         try:
             from piper import SynthesisConfig
 
-            stream = v.synthesize(text, syn_config=SynthesisConfig(length_scale=1.0 / speed))
+            stream = v.synthesize(text, syn_config=SynthesisConfig(length_scale=1.0 / speed, volume=volume))
         except ImportError:  # older piper: no per-call config
             stream = v.synthesize(text)
         for chunk in stream:  # piper >= 1.3 yields AudioChunk objects
@@ -90,11 +93,13 @@ class PiperTTS:
                 raw = getattr(chunk, "audio_int16_bytes", None) or bytes(chunk)
                 arr = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
             rate = getattr(chunk, "sample_rate", rate)
+            if chunks and pause_ms:
+                chunks.append(np.zeros(int(rate * pause_ms / 1000), dtype=np.float32))  # piper yields one chunk per sentence
             chunks.append(np.asarray(arr, dtype=np.float32))
         audio = np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
         return TTSResult(audio=audio, sample_rate=int(rate), latency_ms=(time.perf_counter() - t0) * 1000, voice=voice, text=text)
 
-    def _synthesize_subprocess(self, text: str, voice: str, speed: float) -> TTSResult:
+    def _synthesize_subprocess(self, text: str, voice: str, speed: float, volume: float = 1.0, pause_ms: int = 0) -> TTSResult:
         import subprocess
         import tempfile
         import wave
@@ -105,7 +110,7 @@ class PiperTTS:
         t0 = time.perf_counter()
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "tts.wav"
-            cmd = [str(self.executable), "--model", str(path), "--output_file", str(out), "--length-scale", f"{1.0 / speed:.3f}"]
+            cmd = [str(self.executable), "--model", str(path), "--output_file", str(out), "--length-scale", f"{1.0 / speed:.3f}", "--volume", f"{volume:.2f}", "--sentence-silence", f"{pause_ms / 1000:.2f}"]
             try:
                 proc = subprocess.run(cmd, input=text.encode("utf-8"), capture_output=True, timeout=60, check=False)  # noqa: S603 - fixed argv, no shell
             except (OSError, subprocess.TimeoutExpired) as exc:

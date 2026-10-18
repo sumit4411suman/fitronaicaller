@@ -125,7 +125,7 @@ def test_audio_tests_release_gate(client):
         client.post(f"/api/v1/audio-tests/{r['id']}/confirm")
     assert client.get("/api/v1/settings/release-gate").json()["allowed"] is False
     # real-device inbound pass alone is not enough
-    r1 = client.post("/api/v1/audio-tests", json={"test_id": "AFT-20261018-01", "step": "remote_speech_capture", "direction": "inbound", "status": "pass", "kind": "real_device", "phone_model": "SM-S931B"}).json()
+    r1 = client.post("/api/v1/audio-tests", json={"test_id": "AFT-20261018-01", "step": "remote_speech_capture", "direction": "inbound", "status": "pass", "kind": "real_device", "phone_model": "SM-S931B", "evidence": {"remote_capture_possible": "true"}}).json()
     client.post(f"/api/v1/audio-tests/{r1['id']}/confirm")
     assert client.get("/api/v1/settings/release-gate").json()["allowed"] is False
     r2 = client.post("/api/v1/audio-tests", json={"test_id": "AFT-20261018-01", "step": "generated_speech_transmission", "direction": "outbound", "status": "pass", "kind": "real_device"}).json()
@@ -140,6 +140,26 @@ def test_audio_tests_release_gate(client):
     assert vals["release_gate.autonomous_calling_allowed"] is False and vals["calling.autonomous_enabled"] is False
     rep = client.get("/api/v1/audio-tests/report").json()
     assert rep["gate"]["allowed"] is False and any(s["latest"]["status"] == "not_tested" for s in rep["steps"])
+
+
+def test_release_gate_needs_dedicated_steps_and_capture_evidence(client):
+    def rec(step, direction, **extra):
+        return client.post("/api/v1/audio-tests", json={"test_id": "AFT-GATE", "step": step, "direction": direction, "status": "pass", "kind": "real_device", **extra}).json()
+
+    # an operator tap alone cannot confirm remote speech capture: the phone's probe must have opened a call-audio source
+    r4 = rec("remote_speech_capture", "inbound", evidence={"remote_capture_possible": "false"})
+    r = client.post(f"/api/v1/audio-tests/{r4['id']}/confirm")
+    assert r.status_code == 409 and r.json()["code"] == "remote_capture_unproven"
+    r = client.post("/api/v1/audio-tests", json={"test_id": "AFT-GATE", "step": "remote_speech_capture", "direction": "inbound", "status": "pass", "kind": "real_device", "operator_confirmed": True})
+    assert r.status_code == 409
+    # withdrawing a confirmation is always allowed
+    assert client.post(f"/api/v1/audio-tests/{r4['id']}/confirm", params={"confirmed": False}).status_code == 200
+    # confirmed "both"-direction quality steps plus outbound never open the gate
+    for step in ("simultaneous_two_way", "latency_echo_quality", "hindi_phrases", "english_phrases"):
+        assert client.post(f"/api/v1/audio-tests/{rec(step, 'both')['id']}/confirm").status_code == 200
+    assert client.post(f"/api/v1/audio-tests/{rec('generated_speech_transmission', 'outbound')['id']}/confirm").status_code == 200
+    g = client.get("/api/v1/settings/release-gate").json()
+    assert g["allowed"] is False and g["evidence"]["inbound"] == [] and g["evidence"]["outbound"] == ["AFT-GATE"]
 
 
 def test_settings_validation_and_readonly(client):

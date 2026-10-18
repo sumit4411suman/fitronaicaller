@@ -128,7 +128,7 @@ class AudioTestsScreen(BaseScreen):
         if not latest:
             self.toast("Select a step that has a recorded result", "warning")
             return
-        if confirmed and not confirm(self, "Confirm real-device result", f"Confirm that you personally observed '{latest['step']}' = {latest['status'].upper()} on {latest.get('phone_model') or 'the real device'}? Confirmed PASS rows for both directions open the autonomous release gate.", "Confirm", danger=True):
+        if confirmed and not confirm(self, "Confirm real-device result", f"Confirm that you personally observed '{latest['step']}' = {latest['status'].upper()} on {latest.get('phone_model') or 'the real device'}? Only step 4 (remote speech capture, with the phone's probe evidence) and step 5 (generated speech transmission) can open the autonomous release gate.", "Confirm", danger=True):
             return
         self.run(lambda: self.api.post(f"/audio-tests/{latest['id']}/confirm", params={"confirmed": confirmed}), lambda _: (self.toast("Confirmation saved; gate recomputed", "success"), self.refresh()))
 

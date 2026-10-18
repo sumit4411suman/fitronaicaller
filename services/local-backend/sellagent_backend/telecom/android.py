@@ -93,6 +93,12 @@ class AndroidCompanionAdapter:
         req = CallRequest(call_job_id=call_job_id, e164_number=e164, display_name=display_name, mode=mode, authorization_token=authorization_token, language=language, expires_at=datetime.now(UTC) + timedelta(minutes=2))  # type: ignore[arg-type]
         return await self.hub.request_call(device_id, req)
 
+    def call_audio_path(self, call_id: str) -> None:
+        """None: Android gives a third-party app no stream of a cellular/IMS call's audio in either direction
+        (CAPTURE_AUDIO_OUTPUT is signature|privileged; InCallService controls routing only). If a real-device test
+        ever proves otherwise, the path implementation belongs here - never an acoustic speaker/mic relay."""
+        return None
+
     async def cancel(self, *, call_job_id: str, device_id: str | None, reason: str) -> bool:
         if device_id is None:
             return False

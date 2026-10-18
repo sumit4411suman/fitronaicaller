@@ -44,6 +44,8 @@ DEFAULTS: dict[str, Any] = {
     "ai.piper_voice_hi": "",
     "ai.language": "auto",
     "ai.vad_engine": "auto",
+    "ai.tts_speed_percent": 100,
+    "ai.piper_executable": "",
     "privacy.allow_live_transcription": False,
     "workers.campaign_engine_enabled": True,
     "workers.max_open_jobs_per_campaign": 3,
@@ -123,6 +125,8 @@ def set_value(session: Session, key: str, value: Any, *, actor: str = "operator"
         )
     if key == "calling.default_mode" and value not in {"human_assisted", "autonomous"}:
         raise SettingsError("calling.default_mode must be human_assisted or autonomous")
+    if key == "ai.tts_speed_percent" and not 50 <= value <= 200:
+        raise SettingsError("ai.tts_speed_percent must be between 50 and 200")
     if key == "ai.vad_engine" and value not in {"auto", "silero", "energy"}:
         raise SettingsError("ai.vad_engine must be auto, silero or energy")
     if key == "ai.llm_provider" and value not in {"ollama", "llamacpp", "none"}:

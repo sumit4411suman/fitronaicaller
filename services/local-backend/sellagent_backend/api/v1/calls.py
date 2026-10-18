@@ -290,6 +290,44 @@ def call_summary(call_id: str, db: Session = Depends(get_db)) -> dict:
     return summary
 
 
+class AutonomyStartIn(BaseModel):
+    language: str = "auto"
+    use_llm: bool = True
+
+
+@calls_router.get("/autonomy/status")
+def autonomy_status(request: Request) -> dict:
+    """Autonomous AI conversation: needs the release gate AND a verified digital call-audio path for the call."""
+    return request.app.state.autonomy.status()
+
+
+@calls_router.post("/{call_id}/autonomy/start")
+def autonomy_start(call_id: str, body: AutonomyStartIn, request: Request, db: Session = Depends(get_db)) -> dict:
+    from sellagent_backend.autonomy import AutonomyError
+
+    if body.language not in ("auto", "hi", "en"):
+        raise bad_request("language must be auto, hi or en")
+    c = _call(db, call_id)
+    job = db.get(CallJob, c.call_job_id)
+    adapter = request.app.state.telecom.get(job.route if job else "manual")
+    path = adapter.call_audio_path(call_id) if adapter is not None else None
+    try:
+        session = request.app.state.autonomy.start(call_id, path, language=body.language, use_llm=body.use_llm)
+    except AutonomyError as exc:
+        raise bad_request(str(exc), code=exc.code) from exc
+    return session.to_dict()
+
+
+@calls_router.post("/{call_id}/autonomy/stop")
+def autonomy_stop(call_id: str, request: Request) -> dict:
+    mgr = request.app.state.autonomy
+    a = mgr.active
+    if a is None or a.done or a.call_id != call_id:
+        raise bad_request("no autonomous conversation on this call", code="not_active")
+    mgr.stop("operator took over")
+    return {"stopping": True, "call_id": call_id}
+
+
 class TranscriptionConsentIn(BaseModel):
     prospect_consented: bool
     disclosure_text_read: bool

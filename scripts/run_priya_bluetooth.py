@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""Run Priya (the SELL AGENT female AI) over the Bluetooth hands-free call audio on this PC.
+"""Run Priya (the SELL AGENT female AI) over the live call audio bridged onto this PC - Bluetooth OR wired.
 
-This is the PC-side runner for the verified Bluetooth path (docs/BLUETOOTH_AUDIO.md): it captures the caller from
-the phone's "Hands-Free HF Audio" INPUT device, runs the fully local loop (faster-whisper STT -> FITRON
-conversation engine with the approved facts + guardrails + the female persona -> Piper TTS), and plays Priya's
-voice back to the phone's "Hands-Free HF Audio" OUTPUT device, so the remote party hears her. All local, no cloud.
+This is the PC-side runner for the audio-bridge path (docs/JIO_DIRECT_CALLING.md, docs/BLUETOOTH_AUDIO.md). The
+phone's live call audio is routed to the PC by a physical path (because a non-rooted S25 gives a normal app no
+digital call-audio stream - see docs/JIO_DIRECT_CALLING.md), and SELL AGENT's fully local loop runs over it
+(faster-whisper STT -> FITRON conversation engine with the approved facts + guardrails + the female persona ->
+Piper TTS). It captures the caller from a PC INPUT device and plays Priya back to a PC OUTPUT device wired into
+the call, so the remote party hears her. All local, no cloud.
+
+Two supported wirings (same AI loop either way):
+  * Bluetooth HFP - one hands-free device is both directions: ``--match "HF Audio"`` (verified on this PC).
+  * WIRED (no Bluetooth) - caller-in and Priya-out are two different PC devices (e.g. a USB sound-card line-in
+    and a USB-C DAC): ``--input "Line In" --output "USB-C DAC"``. Needs the adapters in docs/JIO_DIRECT_CALLING.md.
 
 SAFETY — read this:
   * This is a SUPERVISED test tool for ONE consenting participant, not a bulk auto-dialer. You must pass
@@ -85,19 +92,6 @@ class Phone:
 
 
 # --------------------------------------------------------------------------- audio devices
-def find_hf_devices(match: str = "HF Audio"):  # type: ignore[no-untyped-def]
-    """Return (in_index, out_index, samplerate) for the phone's Hands-Free call channel, or raise."""
-    import sounddevice as sd
-
-    devs = sd.query_devices()
-    ins = [i for i, d in enumerate(devs) if match.lower() in d["name"].lower() and d["max_input_channels"] > 0]
-    outs = [i for i, d in enumerate(devs) if match.lower() in d["name"].lower() and d["max_output_channels"] > 0]
-    if not ins or not outs:
-        raise SystemExit(f"No two-way '{match}' device found. Pair the phone, start a call, route its audio to the PC, then retry. Run --list-devices to inspect.")
-    rate = int(devs[ins[0]]["default_samplerate"])
-    return ins[0], outs[0], rate
-
-
 def list_devices() -> None:
     import sounddevice as sd
 
@@ -290,7 +284,9 @@ def main() -> int:
     ap.add_argument("--consent", action="store_true", help="REQUIRED for a real call: the other party agreed to talk to an AI")
     ap.add_argument("--dial", default=None, help="optional: place the call to this number via ADB (consented test number)")
     ap.add_argument("--adb", default="adb")
-    ap.add_argument("--match", default="HF Audio", help="substring of the phone's hands-free audio device name")
+    ap.add_argument("--match", default=None, help="Bluetooth: substring of the one hands-free device (both directions), e.g. 'HF Audio'")
+    ap.add_argument("--input", dest="input_sel", default=None, help="WIRED: caller-in device (name substring or index)")
+    ap.add_argument("--output", dest="output_sel", default=None, help="WIRED: Priya-out device (name substring or index)")
     ap.add_argument("--contact", default="")
     ap.add_argument("--business", default="")
     ap.add_argument("--language", default="auto", choices=["auto", "hi", "en"])
@@ -310,7 +306,7 @@ def main() -> int:
         return 2
 
     from sellagent_backend.config import Settings
-    from sellagent_backend.telecom.local_audio import LocalAudioTransport
+    from sellagent_backend.telecom.local_audio import LocalAudioTransport, resolve_devices
     from sellagent_backend.telecom.media_gateway import SipRtpCallAudioPath
     from sellagent_speech import FasterWhisperSTT, PiperTTS
 
@@ -327,11 +323,22 @@ def main() -> int:
         return 3
     voices = {"en": a.voice_en or "en_US-lessac-medium", "hi": a.voice_hi or "hi_IN-priyamvada-medium"}
 
-    in_i, out_i, rate = find_hf_devices(a.match)
-    print(f"Using Bluetooth call audio: in={in_i} out={out_i} rate={rate} Hz")
+    import sounddevice as sd
+
+    devs = [{"index": i, **d} for i, d in enumerate(sd.query_devices())]
+    # Default to the Bluetooth hands-free device when no selector is given (backward compatible).
+    match = a.match if (a.match or a.input_sel or a.output_sel) else "HF Audio"
+    try:
+        in_i, out_i = resolve_devices(devs, input_sel=a.input_sel, output_sel=a.output_sel, match=match)
+    except ValueError as exc:
+        print(f"Audio device selection failed: {exc}\nRun --list-devices to see names, then pass --match (Bluetooth) or --input/--output (wired).")
+        return 4
+    rate = int(devs[in_i]["default_samplerate"])
+    wiring = "wired" if (a.input_sel or a.output_sel) else "Bluetooth hands-free"
+    print(f"Using {wiring} call audio: in={in_i} ({devs[in_i]['name']}) out={out_i} ({devs[out_i]['name']}) rate={rate} Hz")
     transport = LocalAudioTransport(in_i, out_i, samplerate=rate)
     if not transport.start():
-        print("Could not open the Bluetooth audio devices. Be in a live call with audio routed to the PC, then retry.")
+        print("Could not open the audio devices. Be in a live call with its audio routed to the PC, then retry.")
         return 4
     path = SipRtpCallAudioPath(transport=transport)
 

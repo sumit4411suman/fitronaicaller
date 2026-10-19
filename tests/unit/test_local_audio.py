@@ -4,12 +4,19 @@ no sounddevice. Covers device classification (phone/HFP detection) and the hones
 from __future__ import annotations
 
 import numpy as np
-from sellagent_backend.telecom.local_audio import capture_evidence, classify_devices
+import pytest
+from sellagent_backend.telecom.local_audio import capture_evidence, classify_devices, resolve_devices
 
 DEVICES = [
     {"index": 0, "name": "Microphone (Realtek)", "max_input_channels": 2, "max_output_channels": 0},
     {"index": 1, "name": "Speakers (Realtek)", "max_input_channels": 0, "max_output_channels": 2},
     {"index": 2, "name": "Headset (Galaxy S25 Hands-Free AG Audio)", "max_input_channels": 1, "max_output_channels": 1},
+]
+
+# A wired bridge: caller's voice arrives on a USB sound-card input; Priya's voice goes out a USB-C DAC.
+WIRED = [
+    {"index": 0, "name": "Line In (USB Audio Device)", "max_input_channels": 2, "max_output_channels": 0},
+    {"index": 1, "name": "Speakers (USB-C DAC)", "max_input_channels": 0, "max_output_channels": 2},
 ]
 
 
@@ -48,3 +55,33 @@ def test_capture_evidence_is_honest_about_meaning():
     loud = (0.5 * np.sin(2 * np.pi * 300 * np.linspace(0, 1, sr))).astype(np.float32)
     ev = capture_evidence(loud, sr)
     assert ev["has_signal"] and "NOT proof" in ev["note"]
+
+
+def test_resolve_devices_bluetooth_single_device():
+    # One hands-free device serves as both input and output.
+    assert resolve_devices(DEVICES, match="Hands-Free") == (2, 2)
+
+
+def test_resolve_devices_wired_two_devices_by_name():
+    # The no-Bluetooth path: caller-in and Priya-out are different devices.
+    assert resolve_devices(WIRED, input_sel="Line In", output_sel="USB-C DAC") == (0, 1)
+
+
+def test_resolve_devices_wired_by_index():
+    assert resolve_devices(WIRED, input_sel=0, output_sel=1) == (0, 1)
+
+
+def test_resolve_devices_requires_both_for_wired():
+    with pytest.raises(ValueError, match="BOTH --input and --output"):
+        resolve_devices(WIRED, input_sel="Line In")
+
+
+def test_resolve_devices_rejects_wrong_direction():
+    # Picking a capture-only device as the output must fail, not silently pick a bad device.
+    with pytest.raises(ValueError, match="no output device"):
+        resolve_devices(WIRED, input_sel="Line In", output_sel="Line In")
+
+
+def test_resolve_devices_needs_a_selector():
+    with pytest.raises(ValueError, match="choose a device"):
+        resolve_devices(WIRED)

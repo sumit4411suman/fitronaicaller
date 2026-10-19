@@ -127,6 +127,43 @@ A separate USB cellular modem + Asterisk is the other no-cloud autonomous option
 and needs Jio VoLTE verification before any purchase (`docs/JIO_MODEM_FEASIBILITY.md`) — out of scope for "use my
 existing phone."
 
+### How the audio bridge actually makes Priya two-way
+
+The point both options share: you do **not** need the forbidden digital stream. You route the **call's audio into
+the PC's sound system**, and SELL AGENT's local loop already reads a PC input and writes a PC output
+(`telecom/local_audio.py`, `SipRtpCallAudioPath`, run by `scripts/run_priya_bluetooth.py`). The resolver accepts
+one combined device (Bluetooth) **or two separate devices** (wired), so the same AI runs over either:
+
+```
+# Bluetooth HFP (one hands-free device, verified on this PC):
+python scripts/run_priya_bluetooth.py --consent --match "HF Audio" --contact "Rahul" --business "Power Gym"
+
+# WIRED, no Bluetooth (two separate PC devices):
+python scripts/run_priya_bluetooth.py --list-devices          # find the two device names first
+python scripts/run_priya_bluetooth.py --consent --input "Line In" --output "USB-C DAC" --contact "Rahul"
+```
+
+**Wired parts (only if you choose wired — I will not buy anything without your OK):**
+
+| Part | Why | Rough cost |
+|---|---|---|
+| USB‑C → 3.5 mm **headset** adapter (CTIA, 4‑pole) | The S25 has no 3.5 mm jack; this exposes the call's earpiece-out **and** mic-in as analog | ₹150–400 |
+| TRRS (4‑pole) → 2× TRS splitter ("headset splitter") | Separates that one 4‑pole plug into a headphone plug and a mic plug | ₹150–300 |
+| USB external sound card with **mic/line-in + headphone-out** | Most laptops have no line-in; this gives the PC both directions | ₹300–800 |
+| 2× 3.5 mm patch cables | Cross-wire the two sides | ₹100 |
+
+**Cross-wiring (the part that matters):** phone **earpiece-out → PC mic/line-in** (so Priya hears the caller), and
+PC **headphone-out → phone mic-in** (so the caller hears Priya). Then run the wired command above and confirm the
+caller's voice registers with `scripts/bt_audio_diagnostic.py --capture --input "<your line-in>"`.
+
+**Honest caveats for wired:** it is analog line audio (levels, mic-bias and impedance can need a cheap inline
+attenuator or a sound card that supplies mic bias); it needs the adapters above; and it is fiddlier to set up than
+Bluetooth. It is the right choice **only** because you asked to avoid Bluetooth. Bluetooth HFP needs **zero
+hardware** and already worked on your PC — it is the faster way to a working call if you can accept Bluetooth.
+
+Either way, the two-way audio must be confirmed on a real consented call in **Devices → Audio feasibility console**
+before the release gate opens; the bridge never fabricates a pass.
+
 ## 5. Release gate (unchanged, and this is the point)
 
 Autonomous calling stays disabled until **both** directions are proven on a **real device**: the remote party's

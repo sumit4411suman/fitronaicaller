@@ -26,7 +26,12 @@ class JobDialog(FormDialog):
         self.add_field("contact_id", "Contact", self.contact_cb, required=True)
         self.add_field("campaign_id", "Campaign", combo([("none (ad-hoc, uses global policy)", None)] + [(f"{c['name']} ({c['status']})", c["id"]) for c in campaigns]))
         self.add_field("mode", "Mode", combo([("campaign/default", None), ("human_assisted", "human_assisted"), ("autonomous (release gate)", "autonomous")]))
-        self.add_field("route", "Route", combo([("manual — operator dials own phone", "manual"), ("android_companion — paired phone dials", "android_companion")]))
+        self.add_field("route", "Route", combo([
+            ("manual — operator dials own phone", "manual"),
+            ("android_companion — paired phone dials", "android_companion"),
+            ("exotel — provider dials & streams audio to Priya", "exotel"),
+            ("media_gateway — local SIP / modem / Bluetooth audio", "media_gateway"),
+        ]))
         self.add_field("device_id", "Device (android route)", combo([("auto (most recent approved)", None)] + [(f"{d['name']} · {d['model']} · {d['status']}", d["id"]) for d in devices]))
 
     def _fill(self, rows: list[dict]) -> None:
@@ -174,7 +179,13 @@ class CallQueueScreen(BaseScreen):
         row = self._sel()
         if not row:
             return
-        text = "Manual route: you will dial the number on your own phone; the backend marks the job in progress and opens the live console." if row["route"] == "manual" else "Android route: a call request is sent to the paired phone, which must acknowledge within 10 s."
+        texts = {
+            "manual": "Manual route: you will dial the number on your own phone; the backend marks the job in progress and opens the live console.",
+            "android_companion": "Android route: a call request is sent to the paired phone, which must acknowledge within 10 s.",
+            "exotel": "Exotel route: the provider places the real cellular call and streams both sides of the live audio to Priya (AI stays local). Caller ID is the Exotel ExoPhone, not your Jio number. Needs a configured provider + a verified streamed call for autonomous mode.",
+            "media_gateway": "Media-gateway route: audio is bridged from a local SIP / USB modem / Bluetooth gateway into Priya. Needs the gateway configured and a verified two-way path for autonomous mode.",
+        }
+        text = texts.get(row["route"], f"Route: {row['route']}.")
         if not confirm(self, "Dispatch call job", f"{text}\n\nNumber: {row['phone_e164']}", "Dispatch"):
             return
 

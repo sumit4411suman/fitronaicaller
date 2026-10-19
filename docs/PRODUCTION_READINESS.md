@@ -58,9 +58,9 @@ faster-whisper (STT), the local conversation engine (script mode works with no L
 Ollama/llama.cpp), female Piper TTS, SQLite FTS5 knowledge base — all local. Benchmarks (RAM, model load, STT/LLM/
 TTS latency, Hindi/English accuracy) on the 16 GB CPU-only PC are **not yet measured in this environment** (models
 can't be downloaded in the build sandbox). Measure them on your PC with **`python scripts/benchmark_local_ai.py
---runs 5 --out benchmark.json`** (add `--llm` to include a local LLM in the engine stage); it synthesizes the
-probe utterance with Piper, runs the real pipeline on your CPU, and reports per-stage latency, cold-load time and
-memory in Hindi and English. Latency is genuine; WER there is optimistic (clean synthesized audio). Do not treat
+--runs 5 --out benchmark.json`** (add `--llm` to include a local LLM in the engine stage, or
+`--whisper small base` to compare Whisper sizes side by side); it synthesizes the probe utterance with Piper,
+runs the real pipeline on your CPU, and reports per-stage latency, cold-load time and memory in Hindi and English. Latency is genuine; WER there is optimistic (clean synthesized audio). Do not treat
 latency as real-time until measured.
 
 ## What is DONE in this milestone (Exotel)

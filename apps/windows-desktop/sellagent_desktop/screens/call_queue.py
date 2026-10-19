@@ -2,11 +2,37 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QSplitter, QVBoxLayout, QWidget
-from PySide6.QtCore import Qt
+import sys
 
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
+
+from sellagent_desktop import priya_launcher
 from sellagent_desktop.screens.base import BaseScreen
-from sellagent_desktop.widgets import Card, DataTable, EmptyState, FormDialog, KeyValueGrid, badge, button, caption, combo, confirm, fmt_dt, info, status_label
+from sellagent_desktop.widgets import (
+    Card,
+    DataTable,
+    EmptyState,
+    FormDialog,
+    KeyValueGrid,
+    badge,
+    button,
+    caption,
+    combo,
+    confirm,
+    fmt_dt,
+    info,
+    status_label,
+)
 
 STATUSES = ("pending", "blocked", "queued", "dispatched", "in_progress", "completed", "failed", "cancelled")
 
@@ -58,7 +84,9 @@ class CallQueueScreen(BaseScreen):
         self.queue_btn = button("Queue (re-check eligibility)", None, self.queue_job)
         self.dispatch_btn = button("Dispatch", "primary", self.dispatch_job)
         self.cancel_btn = button("Cancel job", None, self.cancel_job)
-        for b in (self.queue_btn, self.dispatch_btn, self.cancel_btn):
+        self.priya_btn = button("Start Priya (Bluetooth)", None, self.start_priya,
+                                tooltip="Attach the local AI (Priya) to your CURRENT consented call over the Bluetooth hands-free audio. Supervised; opens a console you can Ctrl-C.")
+        for b in (self.queue_btn, self.dispatch_btn, self.cancel_btn, self.priya_btn):
             bar.addWidget(b)
         bar.addStretch(1)
         self.root.addLayout(bar)
@@ -135,6 +163,7 @@ class CallQueueScreen(BaseScreen):
         self.queue_btn.setEnabled(st in ("pending", "blocked"))
         self.dispatch_btn.setEnabled(st in ("pending", "queued"))
         self.cancel_btn.setEnabled(st in ("pending", "blocked", "queued", "dispatched", "in_progress"))
+        self.priya_btn.setEnabled(bool(row))
         if not row:
             self.elig_banner.setText("Select a job.")
             self.reasons.clear()
@@ -200,6 +229,44 @@ class CallQueueScreen(BaseScreen):
             self.refresh()
 
         self.run(lambda: self.api.post(f"/call-jobs/{row['id']}/dispatch"), done, failed)
+
+    def start_priya(self) -> None:
+        """Attach the local AI (Priya) to the operator's CURRENT consented call over the Bluetooth hands-free
+        audio. This launches the supervised runner (scripts/run_priya_bluetooth.py) in a visible console; it does
+        NOT place autonomous or bulk calls and does not bypass the release gate."""
+        row = self._sel()
+        if not row:
+            return
+        self.run(lambda: self.api.get("/contacts", limit=500), lambda res: self._priya_dialog(row, res.get("items", [])))
+
+    def _priya_dialog(self, row: dict, contacts: list[dict]) -> None:
+        c = next((x for x in contacts if x.get("id") == row.get("contact_id")), {})
+        contact = c.get("contact_person") or ""
+        business = c.get("business_name") or ""
+        number = row.get("phone_e164", "")
+        ok_launch, why = priya_launcher.launchable()
+        python = sys.executable if ok_launch else "python"
+        script = priya_launcher.script_path() or "scripts/run_priya_bluetooth.py"
+        cmd = priya_launcher.build_command(python, script, contact=contact, business=business)
+        cmdline = priya_launcher.display_command(cmd)
+        who = business or contact or number or "the selected contact"
+        text = (
+            f"Start Priya (the local female AI) on your CURRENT Bluetooth call with {who} — supervised.\n\n"
+            "Before you continue:\n"
+            "• You must already be on a LIVE call with a CONSENTING participant, with the call audio routed to this "
+            "PC over Bluetooth (the 'Hands-Free HF Audio' device).\n"
+            "• Priya discloses she is an AI, speaks only approved FITRON facts, and stops immediately on opt-out.\n"
+            "• Autonomous / bulk dialing stays disabled until the release gate opens.\n"
+            "• A console window opens — press Ctrl-C there at any time for an emergency stop.\n\n"
+            f"Command:\n{cmdline}"
+        )
+        if not ok_launch:
+            info(self, "Run Priya over Bluetooth", text + f"\n\nNOTE: {why}")
+            return
+        if not confirm(self, "Start Priya over Bluetooth", text + "\n\nI confirm the participant consented to speak with an AI.", "Start Priya"):
+            return
+        ok, detail = priya_launcher.launch(cmd)
+        self.toast(detail, "success" if ok else "danger")
 
     def cancel_job(self) -> None:
         row = self._sel()

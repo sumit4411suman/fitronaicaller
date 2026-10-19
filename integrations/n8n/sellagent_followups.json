@@ -1,0 +1,60 @@
+{
+  "name": "SELL AGENT — daily follow-ups digest",
+  "meta": {
+    "description": "Optional. Weekday 09:00 local: fetch follow-ups due today from the LOCAL SELL AGENT API and post a digest. Read-only; enforces nothing itself — the API enforces consent/eligibility/opt-out. Set the SELLAGENT_TOKEN header and replace the final node with your notifier (Slack/email/etc.)."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "cronExpression", "expression": "0 9 * * 1-5" } ] }
+      },
+      "id": "cron",
+      "name": "Weekday 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [ 240, 300 ]
+    },
+    {
+      "parameters": {
+        "url": "http://127.0.0.1:8765/api/v1/followups",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [ { "name": "until", "value": "={{ $today.endOf('day').toISO() }}" } ] },
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "=Bearer {{ $env.SELLAGENT_TOKEN }}" } ] },
+        "options": { "timeout": 10000 }
+      },
+      "id": "fetch",
+      "name": "GET follow-ups due today (local API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [ 520, 300 ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json).flat();\nconst due = Array.isArray(items) ? items : [];\nconst lines = due.map(f => `• ${f.business_name || f.contact_id}: ${f.reason || 'follow-up'} (${f.due_at || ''})`);\nreturn [{ json: { count: due.length, digest: due.length ? `SELL AGENT — ${due.length} follow-up(s) today:\\n` + lines.join('\\n') : 'SELL AGENT — no follow-ups due today.' } }];"
+      },
+      "id": "format",
+      "name": "Format digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ 800, 300 ]
+    },
+    {
+      "parameters": {
+        "content": "Replace this No-Op with your notifier (Slack / Email / Telegram). It receives { count, digest }. This flow is READ-ONLY and schedules nothing that can bypass SELL AGENT's consent, eligibility, opt-out, quiet-hours or emergency-stop controls — the local API enforces those."
+      },
+      "id": "notify",
+      "name": "→ your notifier (replace)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [ 1080, 300 ]
+    }
+  ],
+  "connections": {
+    "Weekday 09:00": { "main": [ [ { "node": "GET follow-ups due today (local API)", "type": "main", "index": 0 } ] ] },
+    "GET follow-ups due today (local API)": { "main": [ [ { "node": "Format digest", "type": "main", "index": 0 } ] ] },
+    "Format digest": { "main": [ [ { "node": "→ your notifier (replace)", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": {},
+  "active": false
+}

@@ -86,3 +86,11 @@ incorporated into SELL AGENT.** Where an idea was adopted it is a public protoco
 
 AudioSocket is a documented Asterisk protocol (`app_audiosocket`); a clean-room re-implementation of a wire
 format carries no licence obligation.
+
+## Additional evaluated project
+
+| Magraa/SIMVox-AI | MIT | Studied for the Bluetooth/ADB audio path (`docs/BLUETOOTH_AUDIO.md`). Its ADB phone-control approach is standard; its Gemini + Edge-TTS + Google-STT defaults are cloud and are NOT used — SELL AGENT keeps local faster-whisper, local LLM, and Piper. No SIMVox code is copied; the `sounddevice` device-bridge idea is re-implemented in `telecom/local_audio.py`. |
+
+n8n Community Edition (Sustainable Use License / fair-code, NOT OSI open source): used only as an optional,
+internal, operator-side automation tool that calls the local SELL AGENT API; it is never bundled, resold, or
+white-labeled in the product. See `docs/N8N_INTEGRATION.md`.

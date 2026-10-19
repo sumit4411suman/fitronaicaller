@@ -80,10 +80,11 @@ class LocalAudioTransport:
 
     sample_rate = SR
 
-    def __init__(self, input_device: str | int | None, output_device: str | int | None, *, block_ms: int = 20) -> None:
+    def __init__(self, input_device: str | int | None, output_device: str | int | None, *, samplerate: int | None = None, block_ms: int = 20) -> None:
         self.input_device = input_device
         self.output_device = output_device
-        self.block = int(SR * block_ms / 1_000)
+        self.sample_rate = samplerate or SR  # Bluetooth HFP call audio is often 8 kHz; pass the device's real rate
+        self.block = int(self.sample_rate * block_ms / 1_000)
         self._sd: Any = None
         self._in: Any = None
         self._out: Any = None
@@ -96,8 +97,8 @@ class LocalAudioTransport:
             return False
         self._sd = sd
         try:
-            self._in = sd.InputStream(samplerate=SR, channels=1, dtype="int16", device=self.input_device, blocksize=self.block)
-            self._out = sd.OutputStream(samplerate=SR, channels=1, dtype="int16", device=self.output_device, blocksize=self.block)
+            self._in = sd.InputStream(samplerate=self.sample_rate, channels=1, dtype="int16", device=self.input_device, blocksize=self.block)
+            self._out = sd.OutputStream(samplerate=self.sample_rate, channels=1, dtype="int16", device=self.output_device, blocksize=self.block)
             self._in.start()
             self._out.start()
             self._open = True

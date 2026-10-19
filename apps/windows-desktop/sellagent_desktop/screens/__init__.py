@@ -26,6 +26,7 @@ SCREEN_SPECS: list[tuple[str, str, str, str]] = [
     ("followups", "Follow-ups", "followups", "FollowupsScreen"),
     ("analytics", "Reports", "analytics", "AnalyticsScreen"),
     ("devices", "Pairing", "devices", "DevicesScreen"),
+    ("provider", "Telephony provider", "provider", "ProviderScreen"),
     ("audio_tests", "Audio feasibility console", "audio_tests", "AudioTestsScreen"),
     ("suppression", "Suppression & opt-out", "suppression", "SuppressionScreen"),
     ("settings", "Privacy & calling settings", "settings", "SettingsScreen"),
@@ -40,7 +41,7 @@ SCREEN_SPECS: list[tuple[str, str, str, str]] = [
 SCREEN_AREAS: dict[str, str] = {
     "setup": "settings", "models": "ai", "dashboard": "reports", "contacts": "contacts", "contact_detail": "contacts", "import_export": "contacts",
     "campaigns": "campaigns", "eligibility": "contacts", "call_queue": "calls", "live_call": "calls", "call_history": "calls", "diagnostics": "ai", "persona": "settings",
-    "knowledge": "knowledge", "scripts": "knowledge", "followups": "followups", "analytics": "reports", "devices": "devices", "audio_tests": "audio_tests",
+    "knowledge": "knowledge", "scripts": "knowledge", "followups": "followups", "analytics": "reports", "devices": "devices", "provider": "settings", "audio_tests": "audio_tests",
     "suppression": "suppression", "settings": "settings", "backup": "backup", "logs": "health", "profile": "settings", "users": "users", "workers": "system",
 }
 
@@ -54,7 +55,7 @@ NAV_GROUPS: list[tuple[str, str, list[str]]] = [
     ("reports", "Reports", ["analytics"]),
     ("knowledge", "Knowledge Base", ["knowledge"]),
     ("ai", "AI Settings", ["models", "persona", "diagnostics", "scripts"]),
-    ("devices", "Devices", ["devices", "audio_tests"]),
+    ("devices", "Devices", ["devices", "audio_tests", "provider"]),
     ("system", "System Status", ["logs", "workers", "backup"]),
     ("settings", "Settings", ["settings", "users", "suppression", "import_export", "setup", "profile"]),
 ]

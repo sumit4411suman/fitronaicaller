@@ -6,11 +6,20 @@ Status date: 2026-10-19. Device: Samsung Galaxy S25 (SM-S931B), Jio. PC: Windows
 female TTS ↔ back into the call.
 
 **Honest finding up front:** the all-wireless Bluetooth leg hinges on the **PC acting as the phone's Bluetooth
-hands-free unit** (a car-kit/headset the phone sends its call audio to). **Standard Windows 11 does not provide
-that role**, so the Windows audio device that would carry the live call usually does not exist. This must be
-*checked on your actual PC* with the diagnostic below — it may surprise us — but do not count on it. SELL AGENT's
-local AI is fully ready to run over this path the moment a real device proves to carry the call audio; until then
-the release gate stays closed.
+hands-free unit** (a car-kit/headset the phone sends its call audio to). On many Windows PCs that device does not
+exist — but **it must be checked per machine, because some do expose it**.
+
+> **Verified on a real device (2026-10-19).** On the operator's own Windows 11 PC + Galaxy S25 (shown as "Galaxy
+> S26" in the pairing) on Jio, after pairing and routing the live call to the PC, Windows exposed a
+> **"Hands-Free HF Audio"** input **and** output. On a real consented call both directions worked: the caller's
+> voice was captured on the PC (operator confirmed hearing it in `caller_test.wav`), and a tone played from the
+> PC was heard by the remote party. This clears the two-way-audio blocker **on that machine**. It does not
+> generalise — each PC/stack is different — and it is not yet a full autonomous-call pass (Hindi/English quality,
+> latency, interruptions and Jio Wi-Fi Calling on a real call still need checking), so the release gate stays
+> closed until those are confirmed.
+
+SELL AGENT's local AI is ready to run over this path (the runner below); the release gate stays closed until the
+real-device conversation tests pass.
 
 ## 1. What SIMVox-AI actually is (code-level)
 
@@ -111,6 +120,29 @@ python scripts/bt_audio_diagnostic.py --capture --input "Hands-Free" --seconds 6
 It writes honest numbers (RMS, peak, distinct samples) and a `has_signal` flag, and **prints a warning when no
 two-way phone/HFP device exists**. `has_signal` means *some* audio was on the device — it is **not** proof it was
 the remote party. You confirm that against the live call, then record it in the audio-feasibility console.
+
+## 5b. Run Priya over Bluetooth (after the diagnostic shows a two-way device)
+
+`scripts/run_priya_bluetooth.py` runs the whole local loop over the Hands-Free devices. **Supervised, one
+consenting participant — not a bulk dialer.** It discloses it is an AI, speaks only approved FITRON facts, honours
+opt-out, and Ctrl-C is an emergency stop.
+
+First, prove the setup with no phone or models needed:
+```
+python scripts/run_priya_bluetooth.py --selftest       # checks Priya's brain: disclosure, ₹1,999-only, Hindi switch, opt-out
+```
+Install the local models once (sizes/licences printed first):
+```
+python scripts/download_models.py --whisper small --piper hi_IN-priyamvada-medium en_US-lessac-medium --yes
+```
+Then, on a **live consented call** with audio routed to the PC:
+```
+python scripts/run_priya_bluetooth.py --list-devices                      # confirm the HF Audio devices
+python scripts/run_priya_bluetooth.py --consent --contact "Rahul" --business "Power Gym"
+```
+Windows one-click equivalents: `scripts\run_priya_bluetooth.bat selftest` / `devices` / `call "Rahul" "Power Gym"`.
+The transcript and outcome are saved locally under `priya_calls/`. Autonomous dialing of lists stays out of scope
+(`docs/COMPLIANCE_INDIA.md`).
 
 ## 6. Acceptance tests (label each honestly; none auto-passes)
 

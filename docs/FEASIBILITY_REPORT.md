@@ -1,6 +1,14 @@
 # FITRONAICALLER: direct Jio call-audio feasibility report and go/no-go
 
-Status date: 2026-10-18. Device: Samsung Galaxy S25 (SM-S931B), Android 17 (SDK 37), Jio SIM, Wi-Fi Calling.
+Status date: 2026-10-18 (USB-ADB + Exotel-optional update: 2026-10-19). Device: Samsung Galaxy S25 (SM-S931B),
+Android 17 (SDK 37), Jio SIM, Wi-Fi Calling.
+
+> **2026-10-19 direction change.** The project no longer requires Exotel or any paid telephony/AI/speech API.
+> The default path is **your own S25 on Jio, controlled from Windows over USB** (dial/state/hangup work today in
+> human-assisted mode). A USB-ADB diagnostic (`scripts/adb_jio_diagnostic.py`) proves the control path and
+> honestly reports that **ADB carries no call audio**. The two-way-audio conclusion below is unchanged and is
+> re-confirmed for USB: see **`docs/JIO_DIRECT_CALLING.md`** for the full USB/ADB analysis and the SIMVox-AI
+> evaluation. Exotel is now optional and off by default.
 
 **Decision: NO-GO for direct AI calling on the Jio number from a third-party Android app.** Criteria 2 and 3 of the
 go/no-go gate (digital call audio in both directions) cannot be met through public Android APIs. They need privileged
@@ -83,7 +91,8 @@ shows that AI telephone calling is unavailable.
 | Hindi / English voice suite | Yes (`tests/voice`) | Skips without models | Run on the PC with models and consenting recordings |
 | Autonomous conversation loop (`sellagent_backend/autonomy`): barge-in, language following, silence and poor-recognition fallback, opt-out, emergency stop | Yes, but it runs only on a verified digital call-audio path; real routes return none | Simulated path tests | Needs a verified path, which does not exist for Android/Jio |
 | Modular audio gateway + Asterisk AudioSocket server (`telecom/media_gateway.py`, `telecom/audiosocket.py`): documented `MediaTransport`, PCM path with bounded jitter buffer/backpressure, loopback-only, fail-closed gate, `media_gateway` route | Yes | `tests/integration/test_media_gateway.py`, `test_audiosocket.py` (simulated audio, wire protocol, gating, full conversation) | Real modem + Asterisk + a verified Jio VoLTE route; see JIO_MODEM_FEASIBILITY |
-| Exotel AgentStream provider (`telecom/exotel.py`, `api/v1/exotel_ws.py`): cloud telephony, bidirectional WebSocket PCM, fail-closed gate, `exotel` route + desktop provider screen | Yes | `tests/integration/test_exotel.py` (protocol, caller-ID=ExoPhone, gating, WS bridge; simulated) | Needs your Exotel account + DLT + a real consented call; caller ID is the ExoPhone, not Jio (docs/EXOTEL_EVALUATION.md, PRODUCTION_READINESS.md) |
+| USB-ADB call control (`telecom/adb.py`, `scripts/adb_jio_diagnostic.py`): dial via CALL intent, coarse call-state, end-call, honest audio verdict | Yes | `tests/unit/test_adb.py` (command build, parsing, negative audio verdict; headless) | Real S25 run by the operator to produce device evidence (docs/JIO_DIRECT_CALLING.md) |
+| Exotel AgentStream provider *(OPTIONAL, off by default)* (`telecom/exotel.py`, `api/v1/exotel_ws.py`): cloud telephony, bidirectional WebSocket PCM, fail-closed gate, `exotel` route + desktop provider screen | Yes | `tests/integration/test_exotel.py` (protocol, caller-ID=ExoPhone, gating, WS bridge; simulated) | Not required. If used: your Exotel account + DLT + a real consented call; caller ID is the ExoPhone, not Jio (docs/EXOTEL_EVALUATION.md, PRODUCTION_READINESS.md) |
 | Bluetooth / local-audio bridge (`telecom/local_audio.py`) + PC diagnostic (`scripts/bt_audio_diagnostic.py`): device classification, honest capture evidence, `LocalAudioTransport` into the media gateway | Yes | `tests/unit/test_local_audio.py` (classification + evidence, headless) | Windows cannot be the phone's Bluetooth hands-free unit, so the wireless path likely needs a BT-HFP hardware adapter + USB audio; real-device Jio test outstanding; see BLUETOOTH_AUDIO |
 | AI sales persona (female "Priya", Hindi feminine forms, cue-aware replies, call memory, voice pacing) | Yes (`docs/PERSONA.md`) | Unit, API and UI tests in script mode | Voice naturalness and latency on the real PC; LLM-mode quality |
 | Conversation engine, guardrails, opt-out, consent, eligibility, CRM, campaigns, reports | Yes | Automated tests (see TEST_REPORT.md) | Human-assisted use only |

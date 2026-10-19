@@ -6,14 +6,18 @@ what is implemented and tested in this repo versus what genuinely needs your tel
 ## Calling routes (modular telephony interface)
 
 All routes share one `TelecomAdapter`/provider interface and the same local AI loop, and all sit behind the same
-release gate:
+release gate. **The default path is your own Galaxy S25 on Jio — no paid provider is required** (see
+`docs/JIO_DIRECT_CALLING.md`). Exotel is an **optional** cloud add-on, off by default.
 
 | Route | What it is | State |
 |---|---|---|
 | `manual` | Human-assisted: operator dials, Priya suggests lines | Works today |
-| `android_companion` | Paired phone (dial/state); no call audio on a non-rooted S25 | Works for control; audio blocked (docs/S25_COMPATIBILITY.md) |
-| `media_gateway` / AudioSocket | Asterisk/USB-modem/Bluetooth local audio into the loop | Built + simulated-tested; needs a real route verified |
-| **`exotel`** | **Exotel AgentStream cloud telephony, bidirectional WebSocket audio** | **Built + simulated-tested; needs your Exotel account + a real call** |
+| `android_companion` | Paired phone (dial/state) over USB/Wi-Fi; no call audio on a non-rooted S25 | **Default.** Works for control; audio blocked (docs/S25_COMPATIBILITY.md, docs/JIO_DIRECT_CALLING.md) |
+| `media_gateway` / AudioSocket | Asterisk/USB-modem/**Bluetooth or wired local audio** into the loop | Built + simulated-tested; needs a real route verified |
+| `exotel` *(optional)* | Exotel AgentStream cloud telephony, bidirectional WebSocket audio | Optional/off by default; needs your Exotel account + a real call. Caller ID is an ExoPhone, NOT your Jio number |
+
+A **USB-ADB diagnostic** (`scripts/adb_jio_diagnostic.py`, helpers in `telecom/adb.py`) proves the S25 control
+path (dial/state/hangup) and honestly reports that ADB carries no call audio.
 
 ## The 16 required screens (desktop app, PySide6)
 

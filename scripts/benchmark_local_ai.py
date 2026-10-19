@@ -20,9 +20,10 @@ Honest caveats (printed in the report too):
     "engine" stage is near-zero by design.
 
 Usage (on the PC, after models are installed):
-    python scripts/download_models.py --whisper small --piper hi_IN-priyamvada-medium en_US-lessac-medium --yes
+    python scripts/download_models.py --whisper small base --piper hi_IN-priyamvada-medium en_US-lessac-medium --yes
     python scripts/benchmark_local_ai.py --runs 5 --out benchmark.json
-    python scripts/benchmark_local_ai.py --runs 5 --llm        # include the local LLM in the engine stage
+    python scripts/benchmark_local_ai.py --whisper small base --runs 5   # compare two Whisper sizes side by side
+    python scripts/benchmark_local_ai.py --runs 5 --llm                   # include the local LLM in the engine stage
 """
 
 from __future__ import annotations
@@ -95,7 +96,7 @@ def rss_mb() -> float | None:
 # --------------------------------------------------------------------------- benchmark
 def main() -> int:
     ap = argparse.ArgumentParser(description="Benchmark SELL AGENT local AI latency on this PC")
-    ap.add_argument("--whisper", default="small", help="faster-whisper model size (tiny/base/small/medium)")
+    ap.add_argument("--whisper", nargs="+", default=["small"], help="faster-whisper model size(s); pass several to compare, e.g. --whisper small base")
     ap.add_argument("--models-dir", default=None)
     ap.add_argument("--voice-en", default="en_US-lessac-medium")
     ap.add_argument("--voice-hi", default="hi_IN-priyamvada-medium")
@@ -121,11 +122,6 @@ def main() -> int:
     from sellagent_speech.vad import EnergyVAD, VadConfig
 
     models_dir = Path(a.models_dir) if a.models_dir else Settings().models_dir
-    stt = FasterWhisperSTT(a.whisper, models_dir=models_dir)
-    ok, msg = stt.available()
-    if not ok:
-        print(f"Speech recognition not ready: {msg}\nInstall models first:\n  python scripts/download_models.py --whisper {a.whisper} --piper {a.voice_hi} {a.voice_en} --yes")
-        return 3
     tts = PiperTTS(models_dir)
     ok, msg = tts.available()
     if not ok:
@@ -149,42 +145,39 @@ def main() -> int:
                               contact_person="Rahul", business_name="Power Gym", persona=persona, memory=ConversationMemory())
         return turn.agent_text, (turn.language if turn.language in ("hi", "en") else (lang or "en"))
 
-    pipe = VoicePipeline(vad=EnergyVAD(VadConfig(sample_rate=16000)), stt=stt, tts=tts, respond=respond, voices=voices, allow_download=False)
-
-    report: dict = {
-        "tool": "benchmark_local_ai", "generated_at": datetime.now(UTC).isoformat(),
-        "machine": {"platform": sys.platform, "cpu_threads_requested": 4},
-        "config": {"whisper": a.whisper, "voices": voices, "runs_per_phrase": a.runs, "llm": bool(a.llm)},
-        "label": "REAL local inference on this CPU. Latency is representative; WER is optimistic (Piper-clean audio).",
-    }
-    rss_before = rss_mb()
-
-    # Cold load: the first synth + first transcribe force the models to load. available() can pass when the
-    # library is installed but the model/voice FILE is missing, so a real load is the honest check.
+    # Pre-synthesize each probe utterance ONCE (TTS is model-independent), so every Whisper size transcribes the
+    # exact same audio - a fair STT comparison.
+    probes: list[tuple[str, str, np.ndarray]] = []
     try:
-        t0 = time.perf_counter()
-        warm = tts.synthesize("नमस्ते, मैं प्रिया बोल रही हूँ।", voices["hi"])
-        report["tts_cold_load_ms"] = round((time.perf_counter() - t0) * 1000, 1)
-        warm16 = resample(np.asarray(warm.audio, dtype=np.float32), warm.sample_rate, 16000)
-        t0 = time.perf_counter()
-        stt.transcribe(warm16, language="hi", allow_download=False)
-        report["stt_cold_load_ms"] = round((time.perf_counter() - t0) * 1000, 1)
-    except Exception as exc:  # noqa: BLE001 - benchmark must never fabricate numbers from a failed load
-        print(f"Could not load the local models for benchmarking: {exc.__class__.__name__}: {exc}\n"
-              f"Install them on this PC first:\n  python scripts/download_models.py --whisper {a.whisper} "
-              f"--piper {a.voice_hi} {a.voice_en} --yes")
+        for lang, phrases in PHRASES.items():
+            for phrase in phrases:
+                synth = tts.synthesize(phrase, voices[lang])
+                probes.append((lang, phrase, resample(np.asarray(synth.audio, dtype=np.float32), synth.sample_rate, 16000)))
+    except Exception as exc:  # noqa: BLE001 - never fabricate; a missing voice is a clean, actionable failure
+        print(f"Could not synthesize the probe audio (Piper voice missing?): {exc.__class__.__name__}: {exc}\n"
+              f"Install the voices: python scripts/download_models.py --piper {a.voice_hi} {a.voice_en} --yes")
         return 3
 
-    per_stage: dict[str, list[float]] = {"stt": [], "respond": [], "tts": [], "total": []}
-    by_lang: dict[str, dict[str, list[float]]] = {"en": {"total": []}, "hi": {"total": []}}
-    wers: list[float] = []
-    errors: list[str] = []
-
-    for lang, phrases in PHRASES.items():
-        for phrase in phrases:
-            synth = tts.synthesize(phrase, voices[lang])
-            audio16 = resample(np.asarray(synth.audio, dtype=np.float32), synth.sample_rate, 16000)
-            pipe.run(audio16, language=lang)  # warm-up run (discarded)
+    def measure(size: str) -> dict | None:
+        """Benchmark one Whisper size against the shared probes. Returns a result dict, or None on a load failure
+        (message printed). Never fabricates numbers."""
+        stt = FasterWhisperSTT(size, models_dir=models_dir)
+        pipe = VoicePipeline(vad=EnergyVAD(VadConfig(sample_rate=16000)), stt=stt, tts=tts, respond=respond, voices=voices, allow_download=False)
+        rss_before = rss_mb()
+        try:
+            t0 = time.perf_counter()
+            stt.transcribe(probes[0][2], language=probes[0][0], allow_download=False)  # force model load
+            cold_ms = round((time.perf_counter() - t0) * 1000, 1)
+        except Exception as exc:  # noqa: BLE001 - never fabricate numbers from a failed load
+            print(f"Whisper '{size}' could not load: {exc.__class__.__name__}: {exc}\n"
+                  f"  Install it: python scripts/download_models.py --whisper {size} --piper {a.voice_hi} {a.voice_en} --yes")
+            return None
+        per_stage: dict[str, list[float]] = {"stt": [], "respond": [], "tts": [], "total": []}
+        by_lang: dict[str, list[float]] = {"en": [], "hi": []}
+        wers: list[float] = []
+        errors: list[str] = []
+        for lang, phrase, audio16 in probes:
+            pipe.run(audio16, language=lang)  # warm-up (discarded)
             for _ in range(a.runs):
                 turn = pipe.run(audio16, language=lang)
                 if turn.status == "error":
@@ -193,38 +186,57 @@ def main() -> int:
                 for stage in ("stt", "respond", "tts", "total"):
                     if stage in turn.timings_ms:
                         per_stage[stage].append(turn.timings_ms[stage])
-                by_lang[lang]["total"].append(turn.timings_ms.get("total", 0.0))
+                by_lang[lang].append(turn.timings_ms.get("total", 0.0))
                 if turn.transcript:
                     wers.append(word_error_rate(phrase, turn.transcript))
+        return {
+            "whisper": size,
+            "stt_cold_load_ms": cold_ms,
+            "latency_ms": {stage: summarize(vals) for stage, vals in per_stage.items()},
+            "total_ms_by_language": {lang: summarize(vals) for lang, vals in by_lang.items()},
+            "stt_accuracy": {"mean_wer": round(statistics.fmean(wers), 3) if wers else None, "n": len(wers), "note": "optimistic: clean synthesized audio, not a real phone caller"},
+            "memory_mb": {"rss_before_stt": rss_before, "rss_after": rss_mb()},
+            "errors": errors[:10],
+        }
 
-    report["latency_ms"] = {stage: summarize(vals) for stage, vals in per_stage.items()}
-    report["total_ms_by_language"] = {lang: summarize(d["total"]) for lang, d in by_lang.items()}
-    report["stt_accuracy"] = {"mean_wer": round(statistics.fmean(wers), 3) if wers else None, "n": len(wers), "note": "optimistic: clean synthesized audio, not a real phone caller"}
-    report["memory_mb"] = {"rss_before_models": rss_before, "rss_after": rss_mb()}
-    if errors:
-        report["errors"] = errors[:10]
+    report: dict = {
+        "tool": "benchmark_local_ai", "generated_at": datetime.now(UTC).isoformat(),
+        "machine": {"platform": sys.platform, "cpu_threads_requested": 4},
+        "config": {"whisper": a.whisper, "voices": voices, "runs_per_phrase": a.runs, "llm": bool(a.llm)},
+        "label": "REAL local inference on this CPU. Latency is representative; WER is optimistic (Piper-clean audio).",
+        "models": {},
+    }
+    for size in a.whisper:
+        res = measure(size)
+        if res is not None:
+            report["models"][size] = res
+    if not report["models"]:
+        return 3
 
     text = json.dumps(report, indent=2, ensure_ascii=False)
     if a.out:
         Path(a.out).write_text(text)
 
-    # Human-readable summary.
-    lat = report["latency_ms"]
+    # Human-readable summary, per model then a comparison.
     print("\n=== SELL AGENT local AI latency (this PC) ===")
-    print(f"Models: whisper={a.whisper}, voices={voices['hi']}/{voices['en']}, llm={'on' if a.llm else 'off (script engine)'}")
-    print(f"Cold load: STT {report['stt_cold_load_ms']} ms, TTS {report['tts_cold_load_ms']} ms")
-    print(f"{'stage':<10}{'median':>10}{'mean':>10}{'p95':>10}{'max':>10}   (ms, n={lat['total']['n']})")
-    for stage in ("stt", "respond", "tts", "total"):
-        s = lat[stage]
-        print(f"{stage:<10}{s['median']:>10}{s['mean']:>10}{s['p95']:>10}{s['max']:>10}")
-    tb = report["total_ms_by_language"]
-    print(f"Total by language: EN median {tb['en']['median']} ms, HI median {tb['hi']['median']} ms")
-    mb = report["memory_mb"]
-    print(f"Memory RSS: {mb['rss_before_models']} -> {mb['rss_after']} MB")
-    if report["stt_accuracy"]["mean_wer"] is not None:
-        print(f"STT WER (optimistic, clean audio): {report['stt_accuracy']['mean_wer']}")
-    if errors:
-        print(f"WARNING: {len(errors)} run(s) errored; see the report.")
+    print(f"Voices: {voices['hi']}/{voices['en']}  |  llm={'on' if a.llm else 'off (script engine)'}  |  runs/phrase={a.runs}")
+    for size, res in report["models"].items():
+        lat = res["latency_ms"]
+        print(f"\n--- whisper={size}  (STT cold load {res['stt_cold_load_ms']} ms) ---")
+        print(f"{'stage':<10}{'median':>10}{'mean':>10}{'p95':>10}{'max':>10}   (ms, n={lat['total']['n']})")
+        for stage in ("stt", "respond", "tts", "total"):
+            s = lat[stage]
+            print(f"{stage:<10}{s['median']:>10}{s['mean']:>10}{s['p95']:>10}{s['max']:>10}")
+        tb = res["total_ms_by_language"]
+        wer = res["stt_accuracy"]["mean_wer"]
+        print(f"total by language: EN median {tb['en']['median']} ms, HI median {tb['hi']['median']} ms"
+              + (f"  |  WER(optimistic) {wer}" if wer is not None else ""))
+        if res["errors"]:
+            print(f"WARNING: {len(res['errors'])} run(s) errored; see the report.")
+    if len(report["models"]) > 1:
+        print(f"\n=== comparison ===\n{'whisper':<10}{'STT median':>12}{'total median':>14}{'cold load':>12}   (ms)")
+        for size, res in report["models"].items():
+            print(f"{size:<10}{res['latency_ms']['stt']['median']:>12}{res['latency_ms']['total']['median']:>14}{res['stt_cold_load_ms']:>12}")
     if a.out:
         print(f"\nWrote full report to {a.out}")
     print("\nNote: latency is real for this CPU; WER is optimistic because the caller audio is Piper-clean, not a "

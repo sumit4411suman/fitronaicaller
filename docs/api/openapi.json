@@ -10634,7 +10634,8 @@
             "enum": [
               "manual",
               "android_companion",
-              "media_gateway"
+              "media_gateway",
+              "exotel"
             ],
             "title": "Route",
             "default": "manual"

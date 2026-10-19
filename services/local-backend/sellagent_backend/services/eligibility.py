@@ -154,6 +154,11 @@ def check(
             res.reasons.append("external audio gateway is not configured (Settings: gateway.*)")
         if mode == "autonomous" and not s["release_gate.autonomous_calling_allowed"]:
             res.reasons.append("autonomous mode blocked by release gate (no real-device two-way audio evidence)")
+    elif route == "exotel":
+        if not s["provider.enabled"]:
+            res.reasons.append("telephony provider is not enabled (Settings: provider.*)")
+        if mode == "autonomous" and not s["release_gate.autonomous_calling_allowed"]:
+            res.reasons.append("autonomous mode blocked by release gate (no verified two-way streamed-call audio)")
     elif route != "manual":
         res.reasons.append(f"unsupported calling route {route!r}")
 

@@ -25,6 +25,7 @@ from sellagent_backend.api.v1 import (
     campaigns,
     contacts,
     devices,
+    exotel_ws,
     followups,
     health,
     knowledge,
@@ -44,6 +45,7 @@ from sellagent_backend.security.tls import ensure_certificate
 from sellagent_backend.security.tokens import generate_token, hash_token
 from sellagent_backend.services import settings_service
 from sellagent_backend.telecom import AndroidCompanionAdapter, ManualAdapter, MediaGatewayAdapter
+from sellagent_backend.telecom.exotel import ExotelProvider
 from sellagent_backend.ws.hub import Hub
 
 log = logging.getLogger("sellagent")
@@ -109,7 +111,7 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
         app.state.pairing = PairingManager(settings.pairing_code_ttl_seconds, settings.pairing_max_attempts)
         app.state.hub = Hub(sf)
         app.state.uploads = {}
-        app.state.telecom = {"manual": ManualAdapter(), "android_companion": AndroidCompanionAdapter(app.state.hub, sf), "media_gateway": MediaGatewayAdapter(sf)}
+        app.state.telecom = {"manual": ManualAdapter(), "android_companion": AndroidCompanionAdapter(app.state.hub, sf), "media_gateway": MediaGatewayAdapter(sf), "exotel": ExotelProvider(sf)}
         cert, key, fp = ensure_certificate(settings.data_dir)
         app.state.tls_fingerprint = fp
         app.state.lan = LanServer(create_device_app(app), settings.lan_host, settings.lan_port, str(cert), str(key), fp)
@@ -203,6 +205,6 @@ def create_app(settings: Settings | None = None, *, local_token: str | None = No
         log.exception("unhandled error (request %s)", getattr(request.state, "request_id", None))
         return JSONResponse({"code": "internal_error", "error": "internal error; see backend log", "request_id": getattr(request.state, "request_id", None)}, status_code=500)
 
-    for r in (health.router, auth.public_router, auth.router, auth.users_router, calls.safety_router, contacts.router, contacts.sup_router, campaigns.router, calls.router, calls.calls_router, followups.router, knowledge.router, ai.router, speech.router, reports.router, reports.audit_router, settings_api.router, settings_api.backup_router, devices.router, devices.device_public_router, audio_tests.router, system.router, reports.generated_router, ws.router, transcribe.router):
+    for r in (health.router, auth.public_router, auth.router, auth.users_router, calls.safety_router, contacts.router, contacts.sup_router, campaigns.router, calls.router, calls.calls_router, followups.router, knowledge.router, ai.router, speech.router, reports.router, reports.audit_router, settings_api.router, settings_api.backup_router, devices.router, devices.device_public_router, audio_tests.router, system.router, reports.generated_router, ws.router, transcribe.router, exotel_ws.router):
         app.include_router(r, prefix=API_PREFIX)
     return app

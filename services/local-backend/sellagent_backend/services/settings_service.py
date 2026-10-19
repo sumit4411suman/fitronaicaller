@@ -87,6 +87,13 @@ DEFAULTS: dict[str, Any] = {
     "gateway.audiosocket_port": 9092,  # Asterisk app_audiosocket connects here (loopback) to bridge call audio
     "gateway.codec": "g722",  # g722 | pcmu | pcma
     "gateway.caller_id": "",  # the verified calling identity the gateway presents (E.164); informational
+    # Telephony provider (production route, e.g. Exotel AgentStream). OFF by default; credentials live in the
+    # environment (EXOTEL_API_KEY/TOKEN/SID), never here. Enabling it never bypasses the release gate.
+    "provider.enabled": False,
+    "provider.kind": "exotel",  # exotel | asterisk
+    "provider.caller_id": "",  # the provider-approved caller ID / ExoPhone (NOT the Jio number unless verified)
+    "provider.sample_rate": 8000,  # AgentStream stream rate: 8000 | 16000 | 24000
+    "provider.stream_public_url": "",  # wss URL Exotel connects to (via an authenticated tunnel; see PROVIDER_SETUP.md)
 }
 
 READ_ONLY_KEYS = {"release_gate.autonomous_calling_allowed", "release_gate.evidence"}
@@ -156,9 +163,12 @@ def set_value(session: Session, key: str, value: Any, *, actor: str = "operator"
         raise SettingsError("calling.default_mode must be human_assisted or autonomous")
     choices = {"persona.gender": {"female", "male"}, "persona.style": {"warm", "concise", "formal"}, "persona.response_length": {"short", "normal"},
                "persona.default_language": {"auto", "hi", "en"}, "persona.handoff": {"callback", "operator"},
-               "gateway.kind": {"sip", "gateway_phone"}, "gateway.codec": {"g722", "pcmu", "pcma"}}
+               "gateway.kind": {"sip", "gateway_phone"}, "gateway.codec": {"g722", "pcmu", "pcma"},
+               "provider.kind": {"exotel", "asterisk"}}
     if key in choices and value not in choices[key]:
         raise SettingsError(f"{key} must be one of {', '.join(sorted(choices[key]))}")
+    if key == "provider.sample_rate" and value not in (8000, 16000, 24000):
+        raise SettingsError("provider.sample_rate must be 8000, 16000 or 24000")
     if key == "gateway.bind_host" and value not in {"127.0.0.1", "::1", "localhost"}:
         raise SettingsError("gateway.bind_host must be loopback (127.0.0.1, ::1 or localhost): the audio gateway is never exposed on the network")
     if key in ("gateway.sip_port", "gateway.audiosocket_port") and not 1 <= value <= 65535:

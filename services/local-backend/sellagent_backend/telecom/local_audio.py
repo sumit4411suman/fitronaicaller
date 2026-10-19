@@ -73,6 +73,49 @@ def capture_evidence(samples: np.ndarray, sample_rate: int, *, label: str = "cap
     }
 
 
+def _match_device(devices: list[dict[str, Any]], sel: str | int, *, need_input: bool) -> int:
+    """Resolve one selector (an int index, or a case-insensitive name substring) to a device index that has the
+    needed direction. Pure/testable. Raises ValueError with an actionable message on miss/ambiguity."""
+    chan = "max_input_channels" if need_input else "max_output_channels"
+    want = "input" if need_input else "output"
+    if isinstance(sel, int) or (isinstance(sel, str) and sel.lstrip("-").isdigit()):
+        idx = int(sel)
+        match = next((d for d in devices if int(d.get("index", -1)) == idx), None)
+        if match is None:
+            raise ValueError(f"no audio device with index {idx}")
+        if int(match.get(chan, 0)) <= 0:
+            raise ValueError(f"device {idx} ({match.get('name', '?')}) has no {want} channel")
+        return idx
+    low = str(sel).lower()
+    hits = [d for d in devices if low in str(d.get("name", "")).lower() and int(d.get(chan, 0)) > 0]
+    if not hits:
+        raise ValueError(f"no {want} device whose name contains {sel!r}")
+    return int(hits[0].get("index", devices.index(hits[0])))
+
+
+def resolve_devices(devices: list[dict[str, Any]], *, input_sel: str | int | None = None,
+                    output_sel: str | int | None = None, match: str | None = None) -> tuple[int, int]:
+    """Pick (input_index, output_index) for the call-audio bridge from a sounddevice-style device list.
+
+    Two supported wirings, so the same local AI loop runs over either:
+      * WIRED (no Bluetooth): the caller's voice and Priya's voice are on two *different* PC devices (e.g. a USB
+        sound-card line-in for the caller, a USB-C DAC output back into the phone's mic). Pass BOTH input_sel and
+        output_sel (name substring or index).
+      * BLUETOOTH HFP: one hands-free device is both input and output. Pass ``match`` (e.g. "HF Audio").
+
+    Pure and side-effect free (no sounddevice), so it is unit-tested headless. Raises ValueError with guidance
+    when a selector cannot be resolved - the bridge never guesses a device."""
+    if input_sel is not None or output_sel is not None:
+        if input_sel is None or output_sel is None:
+            raise ValueError("wired mode needs BOTH --input and --output (caller-in and Priya-out are different devices)")
+        return _match_device(devices, input_sel, need_input=True), _match_device(devices, output_sel, need_input=False)
+    if match:
+        in_idx = _match_device(devices, match, need_input=True)
+        out_idx = _match_device(devices, match, need_input=False)
+        return in_idx, out_idx
+    raise ValueError("choose a device: pass --match for a Bluetooth hands-free device, or --input and --output for a wired bridge")
+
+
 class LocalAudioTransport:
     """``MediaTransport`` over two Windows audio devices via sounddevice: caller from ``input_device``, AI speech
     to ``output_device``. Imports sounddevice lazily, so the backend and its tests load without audio libraries.
